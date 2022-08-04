@@ -242,3 +242,4 @@
 {"level":"info","msg":"Action URL: /api/production/status user: premier@mail.ru","time":"2022-08-04T16:11:59+05:00"}
 {"level":"error","msg":"GetLast: sql: no rows in result set","time":"2022-08-04T16:11:59+05:00"}
 {"level":"info","msg":"Action URL: /api/production/status user: premier@mail.ru","time":"2022-08-04T16:12:03+05:00"}
+{"level":"info","msg":"address: :8080","time":"2022-08-04T16:55:01+05:00"}

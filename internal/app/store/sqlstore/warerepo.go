@@ -1,6 +1,7 @@
 package sqlstore
 
 import (
+	"time"
 	"warehouse/internal/app/models"
 )
 
@@ -81,4 +82,20 @@ func (r *Repo) GetStatus(line int) (interface{}, error) {
 	}
 
 	return last, nil
+}
+
+func (r *Repo) GetToday(line int) (interface{}, error) {
+
+	type Count struct {
+		Count int `json:"count"`
+	}
+	count := Count{}
+	currentTime := time.Now()
+
+	err := r.store.db.QueryRow("select count(*) from production where checkpoint_id = $1 and \"time\"::date=to_date($2, 'YYYY-MM-DD')", line, currentTime).Scan(&count.Count)
+	if err != nil {
+		return count, err
+	}
+
+	return count, nil
 }

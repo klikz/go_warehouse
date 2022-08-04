@@ -67,3 +67,19 @@ func (s *Server) GetStatus(c *gin.Context) {
 	}
 	c.JSON(200, status)
 }
+
+func (s *Server) GetToday(c *gin.Context) {
+	resp := models.Responce{}
+	temp, _ := c.Get("line")
+	line := temp.(int)
+
+	status, err := s.Store.Repo().GetToday(line)
+	if err != nil {
+		s.Logger.Error("GetLast: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(401, resp)
+		return
+	}
+	c.JSON(200, status)
+}
