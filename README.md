@@ -1,6 +1,6 @@
 # go_warehouse
 
-Golang application for Reregerators factory
+Golang application for refrigerators factory
 
 Includes:
   - control of products on the lines (different checks for production)
