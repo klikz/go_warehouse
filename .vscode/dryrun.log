@@ -1,5 +1,0 @@
-make.exe --dry-run --always-make --keep-going --print-directory
-make: Entering directory 'd:/go_warehouse'
-go run -v ./cmd/warehouse
-make: Leaving directory 'd:/go_warehouse'
- 
