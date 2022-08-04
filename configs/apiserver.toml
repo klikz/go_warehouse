@@ -1,0 +1,4 @@
+saddress=":8000"
+logLevel="error"
+database_url="host=localhost database='warehouse' user='postgres' password='Tashkent123UzbMusayevSD' sslmode='disable'"
+SecretKey="secretket123Uzb"
