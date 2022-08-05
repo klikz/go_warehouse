@@ -10,4 +10,8 @@ type Request struct {
 	Token             string `json:"token,omitempty"`
 	Role              string `json:"role,omitempty"`
 	Line              int    `json:"line"`
+	Name              string `json:"name"`
+	Serial            string `json:"serial"`
+	Defect            int    `json:"defect_id"`
+	Checkpoint        int    `json:"checkpoint_id"`
 }
