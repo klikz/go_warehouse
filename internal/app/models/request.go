@@ -14,4 +14,5 @@ type Request struct {
 	Serial            string `json:"serial"`
 	Defect            int    `json:"defect_id"`
 	Checkpoint        int    `json:"checkpoint_id"`
+	Packing           string `json:"packing"`
 }

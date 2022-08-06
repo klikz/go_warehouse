@@ -14,6 +14,8 @@ type Component struct {
 	Type          string  `json:"type"`
 	Type_id       int     `json:"type_id"`
 	Weight        float64 `json:"weight"`
+	Status        int     `jspn:"status,omitempty"`
+	Token         string  `json:"token,omitempty"`
 }
 
 type Last struct {

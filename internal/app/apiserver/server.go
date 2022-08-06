@@ -40,10 +40,14 @@ func (s *Server) configureRouter() {
 	s.Router.POST("users/login", s.Login)
 
 	ware := s.Router.Group("/ware") //route for warehouse control
-	ware.Use(s.CheckRole())
+	ware.Use(s.WareCheckRole())
 	{
-		ware.POST("/components", s.GetAllComponents) // {"token": string}
-		ware.POST("/component", s.GetCompoment)      // {"id": int, "token": string}
+		ware.POST("/components", s.GetAllComponents)      // {"token": string}
+		ware.POST("/component", s.GetCompoment)           // {"id": int, "token": string}
+		ware.POST("/component/update", s.UpdateCompoment) // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "id":int, "token": string}
+		ware.POST("/component/add", s.AddComponent)       // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "token": string}
+		ware.POST("/component/delete", s.DeleteCompoment) // {"id":int, "token": string}
+		ware.POST("/checkpoints", s.GetAllCheckpoints)    // {"token": string}
 	}
 
 	global := s.Router.Group("/api") //Route for global use
@@ -62,6 +66,14 @@ func (s *Server) configureRouter() {
 		global.POST("/production/defects/types/add", s.AddDefectsTypes)           // {"id": int,"token": string}
 		global.POST("/production/defects/add", s.AddDefects)                      // {"serial": string, "checkpoint_id": int, "defect_id": int, "token": string}
 		global.POST("/production/report/bydate/models/serial", s.GetByDateSerial) // {"date1": string, "date2": string, "line": int, "token": string}
+		global.POST("/production/report/bydate", s.GetCountByDate)                // {"date1": string, "date2": string, "line": int, "token": string}
+		global.POST("/production/report/bydate/models", s.GetByDateModels)        // {"date1": string, "date2": string, "line": int, "token": string}
+		global.POST("/production/report/remont", s.GetRemont)                     // {}
+		global.POST("/production/report/remont/today", s.GetRemontToday)          // {}
+		global.POST("/production/report/remont/bydate", s.GetRemontByDate)        // {"date1": string, "date2": string, "token": string}
+		global.POST("/production/report/remont/update", s.UpdateRemont)           // {"name": string, "id": int, "token": string} id-> defect id
+		global.POST("/production/serial/info", s.GetInfoBySerial)                 // {"serial": string, "token": string}
+		global.POST("/production/galileo/todaymodels", s.GalileoTodayModels)      // {"token": string}
 
 	}
 
@@ -82,7 +94,16 @@ func (s *Server) configureRouter() {
 		production.POST("/defects/types/delete", s.DeleteDefectsTypes)     // {"id": int}
 		production.POST("/defects/types/add", s.AddDefectsTypes)           // {"id": int}
 		production.POST("/defects/add", s.AddDefects)                      // {"serial": string, "checkpoint_id": int, "defect_id": int}
-		production.POST("/report/bydate/models/serial", s.GetByDateSerial) // {"date1": string, "date2": string, "line": int, "token": string}
+		production.POST("/report/bydate/models/serial", s.GetByDateSerial) // {"date1": string, "date2": string, "line": int}
+		production.POST("/report/bydate", s.GetCountByDate)                // {"date1": string, "date2": string, "line": int}
+		production.POST("/report/bydate/models", s.GetByDateModels)        // {"date1": string, "date2": string, "line": int}
+		production.POST("/report/remont", s.GetRemont)                     // {}
+		production.POST("/report/remont/today", s.GetRemontToday)          // {}
+		production.POST("/report/remont/bydate", s.GetRemontByDate)        // {"date1": string, "date2": string}
+		production.POST("/report/remont/update", s.UpdateRemont)           // {"name": string, "id": int} id-> defect id
+		production.POST("/serial/input", s.SerialInput)                    // {"serial": string, "line": int}
+		production.POST("/serial/info", s.GetInfoBySerial)                 // {"serial": string}
+		production.POST("/galileo/todaymodels", s.GalileoTodayModels)      // {}
 	}
-
+	s.Router.POST("galileo/input", s.GalileoInput)
 }
