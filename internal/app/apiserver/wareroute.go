@@ -127,3 +127,94 @@ func (s *Server) GetAllCheckpoints(c *gin.Context) {
 	}
 	c.JSON(200, data)
 }
+
+func (s *Server) DeleteCheckpoint(c *gin.Context) {
+
+	resp := models.Responce{}
+
+	id := c.GetInt("id")
+
+	err := s.Store.Repo().DeleteCheckpoint(id)
+	if err != nil {
+		s.Logger.Error("DeleteCheckpoints: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
+func (s *Server) AddCheckpoint(c *gin.Context) {
+
+	resp := models.Responce{}
+
+	name := c.GetString("name")
+	photo := c.GetString("photo")
+
+	err := s.Store.Repo().AddCheckpoint(name, photo)
+	if err != nil {
+		s.Logger.Error("AddCheckpoint: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
+func (s *Server) UpdateCheckpoint(c *gin.Context) {
+
+	resp := models.Responce{}
+
+	name := c.GetString("name")
+	photo := c.GetString("photo")
+	id := c.GetInt(("id"))
+
+	err := s.Store.Repo().UpdateCheckpoint(name, photo, id)
+	if err != nil {
+		s.Logger.Error("UpdateCheckpoint: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
+func (s *Server) Income(c *gin.Context) {
+
+	resp := models.Responce{}
+	quantity := c.GetFloat64("quantity")
+	id := c.GetInt(("id"))
+
+	err := s.Store.Repo().Income(id, quantity)
+	if err != nil {
+		s.Logger.Error("Income: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
+func (s *Server) Types(c *gin.Context) {
+
+	resp := models.Responce{}
+
+	data, err := s.Store.Repo().Types()
+	if err != nil {
+		s.Logger.Error("Types: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	resp.Result = "ok"
+	c.JSON(200, data)
+}

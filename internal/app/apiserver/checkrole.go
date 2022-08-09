@@ -148,6 +148,7 @@ func (s *Server) WareCheckRole() gin.HandlerFunc {
 		c.Set("type", req.Type)
 		c.Set("type_id", req.Type_id)
 		c.Set("weight", req.Weight)
+		c.Set("quantity", req.Quantity)
 
 	}
 }

@@ -90,13 +90,6 @@ func (r *Repo) AddComponent(c *models.Component) error {
 
 func (r *Repo) DeleteComponent(id int) error {
 
-	_, err := r.store.db.Exec(`
-	update components set status = 0 where id = $1
-	`, id)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -107,7 +100,7 @@ func (r *Repo) GetAllCheckpoints() (interface{}, error) {
 		Photo string `json:"photo"`
 	}
 
-	rows, err := r.store.db.Query(`select c.id, c."name", c.photo  from checkpoints c`)
+	rows, err := r.store.db.Query(`select c.id, c."name", c.photo  from checkpoints c where status = '1'`)
 	if err != nil {
 		return nil, err
 	}
@@ -127,4 +120,104 @@ func (r *Repo) GetAllCheckpoints() (interface{}, error) {
 	}
 
 	return checkpoints, nil
+}
+
+func (r *Repo) DeleteCheckpoint(id int) error {
+	_, err := r.store.db.Exec(`
+	update public.checkpoints  set status = 0 where id = $1 
+	`, id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *Repo) AddCheckpoint(name, photo string) error {
+	var id int
+	err := r.store.db.QueryRow(`
+	insert into public.checkpoints ("name", photo) values ($1, $2) returning id
+	`, name, photo).Scan(&id)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.store.db.Exec(fmt.Sprintf(`
+		CREATE TABLE checkpoints."%d" (
+		id int4 NOT NULL GENERATED ALWAYS AS IDENTITY,
+		component_id int4 NOT NULL,
+		quantity int4 NOT NULL,
+		CONSTRAINT "%d_pk" PRIMARY KEY (id),
+		CONSTRAINT "%d_un" UNIQUE (component_id),
+		CONSTRAINT "%d_FK" FOREIGN KEY (component_id) REFERENCES public.components(id))
+	`, id, id, id, id))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *Repo) UpdateCheckpoint(name, photo string, id int) error {
+	_, err := r.store.db.Exec(`
+	UPDATE public.checkpoints SET "name" = $1, photo = $2 where id = $3
+	`, name, photo, id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *Repo) Income(component_id int, quantity float64) error {
+
+	_, err := r.store.db.Exec(`
+	insert into income (component_id, quantity, updated ) values ($1, $2, now())
+	`, component_id, quantity)
+	if err != nil {
+		return err
+	}
+	_, err = r.store.db.Exec(`
+	update components set available = available + $1 where id = $2
+	`, quantity, component_id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *Repo) Types() (interface{}, error) {
+	type Type struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+
+	rows, err := r.store.db.Query(`select * from types`)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	data := []Type{}
+
+	for rows.Next() {
+		comp := Type{}
+		if err := rows.Scan(&comp.ID, &comp.Name); err != nil {
+			return data, err
+		}
+		data = append(data, comp)
+	}
+	if err = rows.Err(); err != nil {
+		return data, err
+	}
+
+	return data, nil
+}
+
+func (r *Repo) OutcomeModelCheck(id, quantity int) (interface{}, error) {
+	
+	return nil, nil
 }

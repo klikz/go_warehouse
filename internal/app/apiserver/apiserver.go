@@ -14,14 +14,6 @@ func Start(config *Config) error {
 
 	store := sqlstore.New(db)
 	srv := newServer(*store)
-	// if err := s.configureLogger(config); err != nil {
-	// 	return err
-	// }
-	// s.configureRouter()
-
-	// if err := s.ConfigureStore(); err != nil {
-	// 	return err
-	// }
 	srv.Logger.Info("address: ", config.s_address)
 	return srv.Router.Run(config.s_address)
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"warehouse/internal/app/store/sqlstore"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
@@ -29,6 +30,8 @@ func newServer(store sqlstore.Store) *Server {
 	}
 	wrt := io.MultiWriter(os.Stdout, f)
 
+	s.Router.Use(cors.Default())
+
 	s.Logger.SetOutput(wrt)
 	s.Logger.SetFormatter(&log.JSONFormatter{})
 	s.configureRouter()
@@ -42,12 +45,17 @@ func (s *Server) configureRouter() {
 	ware := s.Router.Group("/ware") //route for warehouse control
 	ware.Use(s.WareCheckRole())
 	{
-		ware.POST("/components", s.GetAllComponents)      // {"token": string}
-		ware.POST("/component", s.GetCompoment)           // {"id": int, "token": string}
-		ware.POST("/component/update", s.UpdateCompoment) // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "id":int, "token": string}
-		ware.POST("/component/add", s.AddComponent)       // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "token": string}
-		ware.POST("/component/delete", s.DeleteCompoment) // {"id":int, "token": string}
-		ware.POST("/checkpoints", s.GetAllCheckpoints)    // {"token": string}
+		ware.POST("/components", s.GetAllComponents)        // {"token": string}
+		ware.POST("/component", s.GetCompoment)             // {"id": int, "token": string}
+		ware.POST("/component/update", s.UpdateCompoment)   // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "id":int, "token": string}
+		ware.POST("/component/add", s.AddComponent)         // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "token": string}
+		ware.POST("/component/delete", s.DeleteCompoment)   // {"id":int, "token": string}
+		ware.POST("/checkpoints", s.GetAllCheckpoints)      // {"token": string}
+		ware.POST("/checkpoint/delete", s.DeleteCheckpoint) // {"id":int, "token": string}
+		ware.POST("/checkpoint/add", s.AddCheckpoint)       // {"name":string, "photo":string, "token": string}
+		ware.POST("/checkpoint/update", s.UpdateCheckpoint) // {"name":string, "photo":string, "id":int, "token": string}
+		ware.POST("/income", s.Income)                      // {"component_id":int, "quantity":int, "token": string}
+		ware.POST("/types", s.Types)                        // {"token": string}
 	}
 
 	global := s.Router.Group("/api") //Route for global use
@@ -68,8 +76,8 @@ func (s *Server) configureRouter() {
 		global.POST("/production/report/bydate/models/serial", s.GetByDateSerial) // {"date1": string, "date2": string, "line": int, "token": string}
 		global.POST("/production/report/bydate", s.GetCountByDate)                // {"date1": string, "date2": string, "line": int, "token": string}
 		global.POST("/production/report/bydate/models", s.GetByDateModels)        // {"date1": string, "date2": string, "line": int, "token": string}
-		global.POST("/production/report/remont", s.GetRemont)                     // {}
-		global.POST("/production/report/remont/today", s.GetRemontToday)          // {}
+		global.POST("/production/report/remont", s.GetRemont)                     // {"token": string}
+		global.POST("/production/report/remont/today", s.GetRemontToday)          // {"token": string}
 		global.POST("/production/report/remont/bydate", s.GetRemontByDate)        // {"date1": string, "date2": string, "token": string}
 		global.POST("/production/report/remont/update", s.UpdateRemont)           // {"name": string, "id": int, "token": string} id-> defect id
 		global.POST("/production/serial/info", s.GetInfoBySerial)                 // {"serial": string, "token": string}
