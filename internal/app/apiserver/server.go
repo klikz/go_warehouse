@@ -39,23 +39,36 @@ func newServer(store sqlstore.Store) *Server {
 }
 
 func (s *Server) configureRouter() {
-	s.Router.POST("users/create", s.Create)
 	s.Router.POST("users/login", s.Login)
+	s.Router.POST("ware/outcome/file", s.OutcomeFile)
 
 	ware := s.Router.Group("/ware") //route for warehouse control
 	ware.Use(s.WareCheckRole())
 	{
-		ware.POST("/components", s.GetAllComponents)        // {"token": string}
-		ware.POST("/component", s.GetCompoment)             // {"id": int, "token": string}
-		ware.POST("/component/update", s.UpdateCompoment)   // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "id":int, "token": string}
-		ware.POST("/component/add", s.AddComponent)         // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "token": string}
-		ware.POST("/component/delete", s.DeleteCompoment)   // {"id":int, "token": string}
-		ware.POST("/checkpoints", s.GetAllCheckpoints)      // {"token": string}
-		ware.POST("/checkpoint/delete", s.DeleteCheckpoint) // {"id":int, "token": string}
-		ware.POST("/checkpoint/add", s.AddCheckpoint)       // {"name":string, "photo":string, "token": string}
-		ware.POST("/checkpoint/update", s.UpdateCheckpoint) // {"name":string, "photo":string, "id":int, "token": string}
-		ware.POST("/income", s.Income)                      // {"component_id":int, "quantity":int, "token": string}
-		ware.POST("/types", s.Types)                        // {"token": string}
+		ware.POST("/components", s.GetAllComponents)                     // {"token": string}
+		ware.POST("/component", s.GetCompoment)                          // {"id": int, "token": string}
+		ware.POST("/component/update", s.UpdateCompoment)                // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "id":int, "token": string}
+		ware.POST("/component/add", s.AddComponent)                      // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "token": string}
+		ware.POST("/component/delete", s.DeleteCompoment)                // {"id":int, "token": string}
+		ware.POST("/checkpoints", s.GetAllCheckpoints)                   // {"token": string}
+		ware.POST("/checkpoint/delete", s.DeleteCheckpoint)              // {"id":int, "token": string}
+		ware.POST("/checkpoint/add", s.AddCheckpoint)                    // {"name":string, "photo":string, "token": string}
+		ware.POST("/checkpoint/update", s.UpdateCheckpoint)              // {"name":string, "photo":string, "id":int, "token": string}
+		ware.POST("/income", s.Income)                                   // {"component_id":int, "quantity":int, "token": string}
+		ware.POST("/income/report", s.IncomeReport)                      // {"date1":string, "date2":string, "token": string}
+		ware.POST("/types", s.Types)                                     // {"token": string}
+		ware.POST("/models", s.Models)                                   // {"token": string}
+		ware.POST("/model", s.Model)                                     // {"id":int, "token": string}
+		ware.POST("/outcome/model/check", s.OutcomeModelCheck)           // {"id":int, "token": string}
+		ware.POST("/outcome/model/submit", s.OutcomeModelSubmit)         // {"model_id":int, "quantity":float64, "token": string}
+		ware.POST("/outcome/component/check", s.OutcomeComponentCheck)   // {"component_id":int, "quantity":float64, "token": string}
+		ware.POST("/outcome/component/submit", s.OutcomeComponentSubmit) // {"component_id":int, "checkpoint_id":int, "quantity":float64, "token": string}
+		ware.POST("/outcome/report", s.OutcomeReport)                    // {"date1":string, "date2":string, "token": string}
+		// ware.POST("/outcome/file", s.OutcomeReport)                    // {"date1":string, "date2":string, "token": string}
+		ware.POST("/model/update", s.InsertUpdateModel)          // {"id":int, "code"string, "comment":string, "name":string, "token": string}
+		ware.POST("/bom/component", s.BomComponentInfo)          // {"id":int, "token": string}
+		ware.POST("/bom/component/add", s.BomComponentAdd)       // {"id":int, "token": string}
+		ware.POST("/bom/component/delete", s.BomComponentDelete) // {"model_id":int, "component_id":int, "token": string}
 	}
 
 	global := s.Router.Group("/api") //Route for global use
@@ -82,6 +95,7 @@ func (s *Server) configureRouter() {
 		global.POST("/production/report/remont/update", s.UpdateRemont)           // {"name": string, "id": int, "token": string} id-> defect id
 		global.POST("/production/serial/info", s.GetInfoBySerial)                 // {"serial": string, "token": string}
 		global.POST("/production/galileo/todaymodels", s.GalileoTodayModels)      // {"token": string}
+		global.POST("/users/register", s.Create)                                  // {"email":string, "password":string,"token": string}
 
 	}
 

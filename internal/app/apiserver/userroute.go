@@ -13,41 +13,20 @@ func (s *Server) Create(c *gin.Context) {
 
 	user := models.User{}
 	resp := models.Responce{}
-
-	if err := c.ShouldBind(&user); err != nil {
-		s.Logger.Error("Create: Error Parsing body: ", err)
-		resp.Result = "error"
-		resp.Err = err
-		c.JSON(http.StatusBadRequest, resp)
-		return
-	}
-
-	parsedToken, err := ParseToken(user.Token)
-	if err != nil {
-		s.Logger.Error("Create: Wrong Token: ", user.Email, " token: ", user.Token, " error: ", err)
-		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
-		c.JSON(http.StatusBadRequest, resp)
-		return
-	}
-
-	if parsedToken.Role != "admin" {
-		s.Logger.Error("Create: Wrong Role: ", user.Email, " error: ", err)
-		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
-		c.JSON(http.StatusBadRequest, resp)
-		return
-	}
+	email := c.GetString(("email"))
+	password := c.GetString(("password"))
+	user.Email = email
+	user.Password = password
 
 	if !isEmailValid(user.Email) {
-		s.Logger.Error("Create: Wrong email to login: ", user.Email, " error: ", err)
+		s.Logger.Error("Create: Wrong email to login: ", user.Email)
 		resp.Result = "error"
 		resp.Err = "Wrong Credentials"
 		c.JSON(http.StatusBadRequest, resp)
 		return
 	}
 	if !isPasswordValid(user.Password) {
-		s.Logger.Error("Create: Try wrong password: ", user.Email, " error: ", err)
+		s.Logger.Error("Create: Try wrong password: ", user.Email)
 		resp.Result = "error"
 		resp.Err = "password length < 6"
 		c.JSON(http.StatusBadRequest, resp)
@@ -61,6 +40,7 @@ func (s *Server) Create(c *gin.Context) {
 		return
 	}
 	user.EncryptedPassword = enc
+	user.Role = "user"
 	err = s.Store.Repo().Create(&user)
 	if err != nil {
 		s.Logger.Error("Create: Error in create user: ", err)

@@ -1,8 +1,11 @@
 package apiserver
 
 import (
+	"fmt"
+	"mime/multipart"
 	"warehouse/internal/app/models"
 
+	"github.com/bingoohuang/xlsx"
 	"github.com/gin-gonic/gin"
 )
 
@@ -77,6 +80,7 @@ func (s *Server) AddComponent(c *gin.Context) {
 	component := models.Component{}
 	resp := models.Responce{}
 
+	component.ID = c.GetInt("id")
 	component.Code = c.GetString("code")
 	component.Name = c.GetString("name")
 	component.Checkpoint_id = c.GetInt("checkpoint_id")
@@ -131,8 +135,7 @@ func (s *Server) GetAllCheckpoints(c *gin.Context) {
 func (s *Server) DeleteCheckpoint(c *gin.Context) {
 
 	resp := models.Responce{}
-
-	id := c.GetInt("id")
+	id := c.GetInt("checkpoint_id")
 
 	err := s.Store.Repo().DeleteCheckpoint(id)
 	if err != nil {
@@ -203,6 +206,23 @@ func (s *Server) Income(c *gin.Context) {
 	c.JSON(200, resp)
 }
 
+func (s *Server) IncomeReport(c *gin.Context) {
+	resp := models.Responce{}
+	date1 := c.GetString(("date1"))
+	date2 := c.GetString(("date2"))
+
+	data, err := s.Store.Repo().IncomeReport(date1, date2)
+	if err != nil {
+		s.Logger.Error("IncomeReport: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+
+	c.JSON(200, data)
+}
+
 func (s *Server) Types(c *gin.Context) {
 
 	resp := models.Responce{}
@@ -215,6 +235,245 @@ func (s *Server) Types(c *gin.Context) {
 		c.JSON(200, resp)
 		return
 	}
-	resp.Result = "ok"
 	c.JSON(200, data)
+}
+
+func (s *Server) Models(c *gin.Context) {
+
+	resp := models.Responce{}
+
+	data, err := s.Store.Repo().Models()
+	if err != nil {
+		s.Logger.Error("Models: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	c.JSON(200, data)
+}
+
+func (s *Server) Model(c *gin.Context) {
+
+	resp := models.Responce{}
+	id := c.GetInt(("id"))
+
+	data, err := s.Store.Repo().Model(id)
+	if err != nil {
+		s.Logger.Error("Model: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	c.JSON(200, data)
+}
+
+func (s *Server) InsertUpdateModel(c *gin.Context) {
+
+	resp := models.Responce{}
+	id := c.GetInt(("id"))
+	code := c.GetString(("code"))
+	comment := c.GetString(("comment"))
+	name := c.GetString(("name"))
+
+	err := s.Store.Repo().InsertUpdateModel(name, code, comment, id)
+	if err != nil {
+		s.Logger.Error("InsertUpdateModel: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
+func (s *Server) OutcomeModelCheck(c *gin.Context) {
+
+	resp := models.Responce{}
+	id := c.GetInt(("id"))
+	quantity := c.GetFloat64(("quantity"))
+
+	data, err := s.Store.Repo().OutcomeModelCheck(id, quantity)
+	if err != nil {
+		s.Logger.Error("OutcomeModelCheck: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	c.JSON(200, data)
+}
+
+func (s *Server) OutcomeComponentCheck(c *gin.Context) {
+
+	resp := models.Responce{}
+	id := c.GetInt(("id"))
+	quantity := c.GetFloat64(("quantity"))
+
+	data, err := s.Store.Repo().OutcomeComponentCheck(id, quantity)
+	if err != nil {
+		s.Logger.Error("OutcomeComponentCheck: ", err)
+		resp.Result = "error"
+		resp.Data = data
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+	resp.Data = data
+	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
+func (s *Server) OutcomeComponentSubmit(c *gin.Context) {
+
+	resp := models.Responce{}
+	component_id := c.GetInt(("component_id"))
+	checkpoint_id := c.GetInt(("checkpoint_id"))
+	quantity := c.GetFloat64(("quantity"))
+
+	err := s.Store.Repo().OutcomeComponentSubmit(component_id, checkpoint_id, quantity)
+	if err != nil {
+		s.Logger.Error("OutcomeComponentSubmit: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
+func (s *Server) OutcomeModelSubmit(c *gin.Context) {
+
+	resp := models.Responce{}
+	model_id := c.GetInt(("model_id"))
+	quantity := c.GetFloat64(("quantity"))
+
+	err := s.Store.Repo().OutcomeModelSubmit(model_id, quantity)
+	if err != nil {
+		s.Logger.Error("OutcomeModelSubmit: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
+func (s *Server) OutcomeReport(c *gin.Context) {
+	resp := models.Responce{}
+	date1 := c.GetString(("date1"))
+	date2 := c.GetString(("date2"))
+
+	data, err := s.Store.Repo().OutcomeReport(date1, date2)
+	if err != nil {
+		s.Logger.Error("OutcomeReport: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+
+	c.JSON(200, data)
+}
+
+func (s *Server) OutcomeFile(c *gin.Context) {
+	resp := models.Responce{}
+	type MemberStat struct {
+		Code       string  `title:"code"` // sheet可选，不声明则选择首个sheet页读写
+		Name       string  `title:"name"`
+		Quantity   float64 `title:"quantity"`
+		Checkpoint string  `title:"checkpoint"`
+		Time       string  `title:"time"`
+	}
+
+	type Form struct {
+		File *multipart.FileHeader `form:"excel" binding:"required"`
+	}
+
+	var form Form
+	err := c.ShouldBind(&form)
+	if err != nil {
+		s.Logger.Error("OutcomeFile: ", err)
+		resp.Result = "error"
+		resp.Err = err
+		c.JSON(200, resp)
+		return
+	}
+	// Get raw file bytes - no reader method
+	// openedFile, _ := form.File.Open()
+	// file, _ := ioutil.ReadAll(openedFile)
+	c.SaveUploadedFile(form.File, "temp.xlsx")
+	// myString := string(file[:])
+
+	var memberStats []MemberStat
+	x, _ := xlsx.New(xlsx.WithInputFile("temp.xlsx"))
+	defer x.Close()
+
+	if err := x.Read(&memberStats); err != nil {
+		panic(err)
+	}
+	fmt.Println(memberStats)
+
+	// defer openedFile.Close()
+	c.JSON(200, resp)
+}
+
+func (s *Server) BomComponentInfo(c *gin.Context) {
+
+	resp := models.Responce{}
+	id := c.GetInt(("id"))
+
+	data, err := s.Store.Repo().BomComponentInfo(id)
+	if err != nil {
+		s.Logger.Error("BomComponentInfo: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	c.JSON(200, data)
+}
+
+func (s *Server) BomComponentAdd(c *gin.Context) {
+
+	resp := models.Responce{}
+	component_id := c.GetInt(("id"))
+	model_id := c.GetInt(("model_id"))
+	quantity := c.GetFloat64(("quantity"))
+	comment := c.GetString(("id"))
+
+	err := s.Store.Repo().BomComponentAdd(component_id, model_id, quantity, comment)
+	if err != nil {
+		s.Logger.Error("BomComponentAdd: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
+func (s *Server) BomComponentDelete(c *gin.Context) {
+
+	resp := models.Responce{}
+	component_id := c.GetInt(("component_id"))
+	model_id := c.GetInt(("model_id"))
+
+	err := s.Store.Repo().BomComponentDelete(component_id, model_id)
+	if err != nil {
+		s.Logger.Error("BomComponentDelete: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	resp.Result = "ok"
+	c.JSON(200, resp)
 }

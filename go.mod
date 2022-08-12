@@ -5,8 +5,21 @@ go 1.18
 require github.com/keymetrics/pm2-io-apm-go v0.0.1
 
 require (
+	github.com/araddon/dateparse v0.0.0-20190622164848-0fb0a474d195 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
+	github.com/averagesecurityguy/random v0.0.0-20180326012618-37cce341d2af // indirect
+	github.com/bingoohuang/gor v0.0.0-20200321095356-94cf6290c6ea // indirect
+	github.com/bingoohuang/strcase v0.0.0-20200312105414-ac2c85cfc85d // indirect
+	github.com/bingoohuang/xlsx v1.1.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.2 // indirect
+	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
+	github.com/richardlehane/mscfb v1.0.4 // indirect
+	github.com/richardlehane/msoleps v1.0.1 // indirect
+	github.com/thoas/go-funk v0.5.0 // indirect
+	github.com/unidoc/unioffice v1.3.0 // indirect
+	github.com/xuri/efp v0.0.0-20220407160117-ad0f7a785be8 // indirect
+	github.com/xuri/excelize/v2 v2.6.0 // indirect
+	github.com/xuri/nfp v0.0.0-20220409054826-5e722a1d9e22 // indirect
 )
 
 require (

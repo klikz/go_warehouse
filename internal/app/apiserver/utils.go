@@ -25,7 +25,7 @@ func isEmailValid(e string) bool {
 	return emailRegex.MatchString(e)
 }
 func isPasswordValid(p string) bool {
-	return len(p) > 6
+	return len(p) >= 6
 }
 
 func ComparePassword(password, encrypt string) bool {

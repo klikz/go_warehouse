@@ -17,6 +17,11 @@ type Component struct {
 	Status        int     `jspn:"status,omitempty"`
 	Token         string  `json:"token,omitempty"`
 	Quantity      float64 `json:"quantity,omitempty"`
+	Comment       string  `json:"comment"`
+	Component_id  int     `json:"component_id"`
+	Model_ID      int     `json:"model_id"`
+	Date1         string  `json:"date1"`
+	Date2         string  `json:"date2"`
 }
 
 type Last struct {
@@ -24,7 +29,8 @@ type Last struct {
 	Model_id      int    `json:"model_id"`
 	Model         string `json:"model"`
 	Checkpoint_id int    `json:"checkpoint_id"`
-	Line          string `json:"line"`
-	Product_id    int    `json:"product_id"`
-	Time          string `json:"time"`
+
+	Line       string `json:"line"`
+	Product_id int    `json:"product_id"`
+	Time       string `json:"time"`
 }

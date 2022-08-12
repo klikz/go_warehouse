@@ -59,6 +59,7 @@ func (s *Server) CheckRole() gin.HandlerFunc {
 		c.Set("defect", req.Defect)
 		c.Set("checkpoint", req.Checkpoint)
 		c.Set("packing", req.Packing)
+		c.Set("password", req.Password)
 
 	}
 }
@@ -107,7 +108,7 @@ func (s *Server) WareCheckRole() gin.HandlerFunc {
 
 		parsedToken, err := ParseToken(req.Token)
 		if err != nil {
-			s.Logger.Error("Wrong Token: ", req.Token, " error: ", err)
+			s.Logger.Error("WareCheckRole Wrong Token: ", req.Token, " error: ", err)
 			resp.Result = "error"
 			resp.Err = "Wrong Credentials"
 			c.JSON(401, resp)
@@ -117,7 +118,7 @@ func (s *Server) WareCheckRole() gin.HandlerFunc {
 
 		res, err := s.Store.Repo().CheckRole(c.Request.URL.String(), parsedToken.Email)
 		if err != nil {
-			s.Logger.Error("CheckRole: ", req.Token, " error: ", err)
+			s.Logger.Error("WareCheckRole: ", req.Token, " error: ", err)
 			resp.Result = "error"
 			resp.Err = "Wrong Credentials"
 			c.JSON(401, resp)
@@ -126,7 +127,7 @@ func (s *Server) WareCheckRole() gin.HandlerFunc {
 		}
 
 		if !res {
-			s.Logger.Error("CheckRole: ", req.Token, " error: ", err)
+			s.Logger.Error("WareCheckRole: ", req.Token, " error: ", err)
 			resp.Result = "error"
 			resp.Err = "Wrong Credentials"
 			c.JSON(401, resp)
@@ -149,6 +150,11 @@ func (s *Server) WareCheckRole() gin.HandlerFunc {
 		c.Set("type_id", req.Type_id)
 		c.Set("weight", req.Weight)
 		c.Set("quantity", req.Quantity)
+		c.Set("comment", req.Comment)
+		c.Set("model_id", req.Model_ID)
+		c.Set("component_id", req.Component_id)
+		c.Set("date1", req.Date1)
+		c.Set("date2", req.Date2)
 
 	}
 }
