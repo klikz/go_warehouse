@@ -1,0 +1,151 @@
+using System.Text;
+using System.Net;
+using System.Net.Sockets;
+using Newtonsoft.Json;
+
+public class SendData
+{
+    public string Barcode { get; set; }
+    public string OpCode { get; set; }
+    public string TypeFreon { get; set; }
+    public string Result { get; set; }
+    public string ProgQuantity { get; set; }
+    public string Quantity { get; set; }
+    public string CycleTotalTime { get; set; }
+    public string Time { get; set; }
+
+}
+
+namespace SocketTcpServer
+{
+    class Program
+    {
+        static int port = 52444; // порт для приема входящих запросов
+        static void Main(string[] args)
+        {
+            // получаем адреса для запуска сокета
+            IPEndPoint ipPoint = new IPEndPoint(IPAddress.Any, port);
+
+            // создаем сокет
+            Socket listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            try
+            {
+                using (TcpClient client = new TcpClient())
+                {
+                    client.BeginConnect("192.168.5.90", 52444, null, null).AsyncWaitHandle.WaitOne(2000, true);
+                    using (NetworkStream n = client.GetStream())
+                    {
+                        BinaryWriter w = new BinaryWriter(n);
+                        w.Write(new byte[] { 2, 49, 51, 76, 88, 0, 0, 3, 0, 1, 135, 3, 0, 3 }, 0, 14);
+                        w.Flush(); // Send the request packet
+                    }
+                }
+            }
+            catch (Exception ex)
+            { Console.WriteLine(ex.Message); }
+
+            try
+            {
+                // связываем сокет с локальной точкой, по которой будем принимать данные
+                listenSocket.Bind(ipPoint);
+                // начинаем прослушивание
+                listenSocket.Listen(10);
+                Console.WriteLine("Сервер запущен. Ожидание подключений...");
+
+                while (true)
+                {
+                    Socket handler = listenSocket.Accept();
+                    // получаем сообщение
+                    StringBuilder builder = new StringBuilder();
+                    int bytes = 0; // количество полученных байтов
+                    byte[] data = new byte[1500]; // буфер для получаемых данных
+
+                    do
+                    {
+                        bytes = handler.Receive(data);
+                        builder.Append(Encoding.Unicode.GetString(data, 0, bytes));
+                        ParseReport(data);
+                    }
+                    while (handler.Available > 0);
+                    Console.WriteLine(DateTime.Now.ToShortTimeString() + ": " + builder.ToString());
+
+                    // закрываем сокет
+                    handler.Shutdown(SocketShutdown.Both);
+                    handler.Close();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+        }
+
+        private static void ParseReport(byte[] currFrame)
+        {
+            int StartIndex = 13; //Packet Header length + Message Header length…
+
+            Encoding enc = Encoding.ASCII;
+            String Barcode = enc.GetString(currFrame, StartIndex, 40);
+            Barcode = String.Concat(Barcode.Where(c => !Char.IsWhiteSpace(c)));
+            String OpCode = enc.GetString(currFrame, StartIndex + 70, 4);
+            
+            OpCode = String.Concat(OpCode.Where(c => !Char.IsWhiteSpace(c)));
+            String TypeFreon = enc.GetString(currFrame, StartIndex + 91, 12);
+            TypeFreon = String.Concat(TypeFreon.Where(c => !Char.IsWhiteSpace(c)));
+            char Result = BitConverter.ToChar(currFrame, 135);
+            float ProgQuantity = BitConverter.ToSingle(currFrame, 119);
+            float Quantity = BitConverter.ToSingle(currFrame, 123);
+            int CycleTotalTime = (int)BitConverter.ToUInt32(currFrame, 167);
+            int YY = BitConverter.ToUInt16(currFrame, 53); //Start Date parsing…
+            int MM = BitConverter.ToUInt16(currFrame, 55);
+            int DD = BitConverter.ToUInt16(currFrame, 57);
+            int hh = BitConverter.ToUInt16(currFrame, 59);
+            int mm = BitConverter.ToUInt16(currFrame, 61);
+            String time = YY + "-" + MM + "-" + DD + " " + hh + ":" + mm;
+
+            SendData data = new()
+            {
+                Barcode = (string)Barcode,
+                OpCode = (string)OpCode,
+                TypeFreon = (string)TypeFreon,
+                Result = (string)Result.ToString(),
+                ProgQuantity = (string)ProgQuantity.ToString(),
+                Quantity = (string)Quantity.ToString(),
+                CycleTotalTime = (string)CycleTotalTime.ToString(),
+                Time = (string)time
+            };
+            try
+            {
+                var httpWebRequest = (HttpWebRequest)WebRequest.Create("http://192.168.5.250:7777/galileo/input");
+                httpWebRequest.ContentType = "application/json";
+                httpWebRequest.Method = "POST";
+                using (var streamWriter = new StreamWriter(httpWebRequest.GetRequestStream()))
+                {
+                    string json = JsonConvert.SerializeObject(data, Formatting.Indented);
+                    streamWriter.Write(json);
+                }
+                var httpResponse = (HttpWebResponse)httpWebRequest.GetResponse();
+                httpResponse.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            
+
+            Console.WriteLine("Barcode: " + Barcode.ToString());
+            Console.WriteLine("OpCode: " + OpCode.ToString());
+            Console.WriteLine("YY: " + YY);
+            Console.WriteLine("MM: " + MM);
+            Console.WriteLine("DD: " + DD);
+            Console.WriteLine("hh: " + hh);
+            Console.WriteLine("mm: " + mm);
+            Console.WriteLine("CycleTotalTime: " + CycleTotalTime.ToString());
+            Console.WriteLine("TypeFreon: " + TypeFreon.ToString());
+            Console.WriteLine("Quantity: " + Quantity.ToString());
+            Console.WriteLine("ProgQuantity: " + ProgQuantity.ToString());
+            Console.WriteLine("Result: " + Result.ToString());
+        }
+    }
+}
+
