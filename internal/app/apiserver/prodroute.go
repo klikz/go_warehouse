@@ -204,9 +204,9 @@ func (s *Server) AddDefectsTypes(c *gin.Context) {
 func (s *Server) AddDefects(c *gin.Context) {
 	resp := models.Responce{}
 	temp, _ := c.Get("serial")
-	temp2, _ := c.Get("checkpoint")
+	temp2, _ := c.Get("checkpoint_id")
 	temp4, _ := c.Get("name")
-	temp5, _ := c.Get("defect")
+	temp5, _ := c.Get("defect_id")
 
 	checkpoint := temp2.(int)
 	name := temp4.(string)

@@ -1,7 +1,6 @@
 package apiserver
 
 import (
-	"fmt"
 	"mime/multipart"
 	"warehouse/internal/app/models"
 
@@ -383,14 +382,8 @@ func (s *Server) OutcomeReport(c *gin.Context) {
 }
 
 func (s *Server) OutcomeFile(c *gin.Context) {
+	s.Logger.Info("outcome file")
 	resp := models.Responce{}
-	type MemberStat struct {
-		Code       string  `title:"code"` // sheet可选，不声明则选择首个sheet页读写
-		Name       string  `title:"name"`
-		Quantity   float64 `title:"quantity"`
-		Checkpoint string  `title:"checkpoint"`
-		Time       string  `title:"time"`
-	}
 
 	type Form struct {
 		File *multipart.FileHeader `form:"excel" binding:"required"`
@@ -411,16 +404,27 @@ func (s *Server) OutcomeFile(c *gin.Context) {
 	c.SaveUploadedFile(form.File, "temp.xlsx")
 	// myString := string(file[:])
 
-	var memberStats []MemberStat
+	var file []models.FileInput
 	x, _ := xlsx.New(xlsx.WithInputFile("temp.xlsx"))
 	defer x.Close()
 
-	if err := x.Read(&memberStats); err != nil {
+	if err := x.Read(&file); err != nil {
 		panic(err)
 	}
-	fmt.Println(memberStats)
+	// fmt.Println(file)
+	res, err := s.Store.Repo().FileInput(file)
+	if err != nil {
+		s.Logger.Error(err)
+		resp.Result = "error"
+		resp.Data = res
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
 
 	// defer openedFile.Close()
+	resp.Result = "ok"
+	resp.Data = res
 	c.JSON(200, resp)
 }
 

@@ -56,8 +56,8 @@ func (s *Server) CheckRole() gin.HandlerFunc {
 		c.Set("line", req.Line)
 		c.Set("name", parsedToken.Email)
 		c.Set("serial", req.Serial)
-		c.Set("defect", req.Defect)
-		c.Set("checkpoint", req.Checkpoint)
+		c.Set("defect_id", req.Defect)
+		c.Set("checkpoint_id", req.Checkpoint)
 		c.Set("packing", req.Packing)
 		c.Set("password", req.Password)
 

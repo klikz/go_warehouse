@@ -166,7 +166,7 @@ func (r *Repo) AddCheckpoint(name, photo string) error {
 		CREATE TABLE checkpoints."%d" (
 		id int4 NOT NULL GENERATED ALWAYS AS IDENTITY,
 		component_id int4 NOT NULL,
-		quantity int4 NOT NULL,
+		quantity numeric NOT NULL,
 		CONSTRAINT "%d_pk" PRIMARY KEY (id),
 		CONSTRAINT "%d_un" UNIQUE (component_id),
 		CONSTRAINT "%d_FK" FOREIGN KEY (component_id) REFERENCES public.components(id))
@@ -561,7 +561,7 @@ func (r *Repo) OutcomeReport(date1, date2 string) (interface{}, error) {
 	}
 
 	rows, err := r.store.db.Query(`
-	select c.code, c."name", i.quantity, c2."name" as checkpoint, to_char(i."create", 'DD-MM-YYYY hh-mm') time from outcome i, components c, checkpoints c2 
+	select c.code, c."name", i.quantity, c2."name" as checkpoint, to_char(i."create", 'DD-MM-YYYY HH12:MI') time from outcome i, components c, checkpoints c2 
 	where 
 		i."create"::date>=to_date($1, 'YYYY-MM-DD') 
 		and i."create"::date<=to_date($2, 'YYYY-MM-DD') 
@@ -636,4 +636,33 @@ func (r *Repo) BomComponentDelete(component_id, model_id int) error {
 		return err
 	}
 	return nil
+}
+
+func (r *Repo) FileInput(f []models.FileInput) ([]models.FileInput, error) {
+	// type CheckComponent struct {
+	// 	ID         int     `json:"id"`
+	// 	Checkpoint int     `json:"checkpoint_id"`
+	// 	Available  float64 `json:"available"`
+	// 	Name       string  `json:"name"`
+	// }
+	// fmt.Println(f)
+	// logrus.Info(f)
+
+	for i := 0; i < len(f); i++ {
+		_ = r.store.db.QueryRow(`
+		select c.id, c2.id as checkpoint_id,  c.available from components c, checkpoints c2  where c.code = $1 and c."checkpoint"  = c2.id 
+		`, string(f[i].Code)).Scan(&f[i].ID, &f[i].Checkpoint_id, &f[i].Available)
+		if f[i].Quantity > f[i].Available {
+			return f, errors.New("komponent_yetarli_emas")
+		}
+
+		// logrus.Info("id: ", f[i].ID, " name: ", f[i].Name, " available: ", f[i].Available)
+	}
+	for i := 0; i < len(f); i++ {
+		if err := r.OutcomeComponentSubmit(f[i].ID, f[i].Checkpoint_id, f[i].Quantity); err != nil {
+			return nil, err
+		}
+		// logrus.Info("value.ID: ", f[i].ID, " value.Checkpoint_id: ", f[i].Checkpoint_id, " value.Quantity: ", f[i].Quantity)
+	}
+	return f, nil
 }

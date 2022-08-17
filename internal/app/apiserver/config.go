@@ -9,7 +9,7 @@ type Config struct {
 
 func NewConfig() *Config {
 	return &Config{
-		s_address: ":8080",
+		s_address: ":7777",
 		logLevel:  "debug",
 	}
 }

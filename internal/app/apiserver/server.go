@@ -64,11 +64,10 @@ func (s *Server) configureRouter() {
 		ware.POST("/outcome/component/check", s.OutcomeComponentCheck)   // {"component_id":int, "quantity":float64, "token": string}
 		ware.POST("/outcome/component/submit", s.OutcomeComponentSubmit) // {"component_id":int, "checkpoint_id":int, "quantity":float64, "token": string}
 		ware.POST("/outcome/report", s.OutcomeReport)                    // {"date1":string, "date2":string, "token": string}
-		// ware.POST("/outcome/file", s.OutcomeReport)                    // {"date1":string, "date2":string, "token": string}
-		ware.POST("/model/update", s.InsertUpdateModel)          // {"id":int, "code"string, "comment":string, "name":string, "token": string}
-		ware.POST("/bom/component", s.BomComponentInfo)          // {"id":int, "token": string}
-		ware.POST("/bom/component/add", s.BomComponentAdd)       // {"id":int, "token": string}
-		ware.POST("/bom/component/delete", s.BomComponentDelete) // {"model_id":int, "component_id":int, "token": string}
+		ware.POST("/model/update", s.InsertUpdateModel)                  // {"id":int, "code"string, "comment":string, "name":string, "token": string}
+		ware.POST("/bom/component", s.BomComponentInfo)                  // {"id":int, "token": string}
+		ware.POST("/bom/component/add", s.BomComponentAdd)               // {"id":int, "token": string}
+		ware.POST("/bom/component/delete", s.BomComponentDelete)         // {"model_id":int, "component_id":int, "token": string}
 	}
 
 	global := s.Router.Group("/api") //Route for global use
@@ -81,6 +80,8 @@ func (s *Server) configureRouter() {
 		global.POST("/production/sector/balance", s.GetSectorBalance)             // {"line": int, "token": string}
 		global.POST("/production/packing/last", s.GetPackingLast)                 // {"token": string}
 		global.POST("/production/packing/today", s.GetPackingToday)               // {"token": string}
+		global.POST("/production/packing/today/serial", s.GetPackingTodaySerial)  // {"token": string}
+		global.POST("/production/packing/today/models", s.GetPackingTodayModels)  // {"token": string}
 		global.POST("/production/lines", s.GetLines)                              // {"token": string}
 		global.POST("/production/defects/types", s.GetDefectsTypes)               // {"token": string}
 		global.POST("/production/defects/types/delete", s.DeleteDefectsTypes)     // {"id": int,"token": string}
@@ -111,6 +112,7 @@ func (s *Server) configureRouter() {
 		production.POST("/packing/today", s.GetPackingToday)               // {}
 		production.POST("/packing/today/serial", s.GetPackingTodaySerial)  // {}
 		production.POST("/packing/today/models", s.GetPackingTodayModels)  // {}
+		production.POST("/packing/serial/input", s.PackingSerialInput)     // {"serial":string, "packing":string}
 		production.POST("/lines", s.GetLines)                              // {}
 		production.POST("/defects/types", s.GetDefectsTypes)               // {}
 		production.POST("/defects/types/delete", s.DeleteDefectsTypes)     // {"id": int}
