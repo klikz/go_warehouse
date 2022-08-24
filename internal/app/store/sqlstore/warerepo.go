@@ -413,7 +413,7 @@ func (r *Repo) OutcomeComponentCheck(id int, quantity float64) (interface{}, err
 		return nil, err
 	}
 
-	if checkComp.Available > quantity {
+	if checkComp.Available >= quantity {
 		return checkComp, nil
 	}
 	return checkComp, errors.New("yetarli emas")

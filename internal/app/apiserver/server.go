@@ -39,8 +39,8 @@ func newServer(store sqlstore.Store) *Server {
 }
 
 func (s *Server) configureRouter() {
-	s.Router.POST("users/login", s.Login)
-	s.Router.POST("ware/outcome/file", s.OutcomeFile)
+	s.Router.POST("users/login", s.Login)             // {"email": string, "password": string}
+	s.Router.POST("ware/outcome/file", s.OutcomeFile) //only excel file input
 
 	ware := s.Router.Group("/ware") //route for warehouse control
 	ware.Use(s.WareCheckRole())
