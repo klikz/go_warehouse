@@ -779,7 +779,17 @@ func (r *Repo) SerialInput(line int, serial string) error {
 		s := string(res)
 		data := Laboratory{}
 		json.Unmarshal([]byte(s), &data)
+		logrus.Info("laboratory: ", data.Result)
+		if data.Result != "Good" {
+			logrus.Info("Not Good")
+			_, err := setPin("0", modelInfo.address)
+			if err != nil {
+				return err
+			}
+			return errors.New("laboratoriyada muammo")
+		}
 		if data.Result == "No data" {
+			logrus.Info("No Data")
 			_, err := setPin("0", modelInfo.address)
 			if err != nil {
 				return err
