@@ -19,8 +19,9 @@ func (s *Server) CheckRole() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-
+		s.Logger.Info("req token: ", req.Token)
 		parsedToken, err := ParseToken(req.Token)
+
 		if err != nil {
 			s.Logger.Error("Wrong Token: ", req.Token, " error: ", err)
 			resp.Result = "error"
@@ -60,6 +61,7 @@ func (s *Server) CheckRole() gin.HandlerFunc {
 		c.Set("checkpoint_id", req.Checkpoint)
 		c.Set("packing", req.Packing)
 		c.Set("password", req.Password)
+		c.Set("image", req.Image)
 
 	}
 }

@@ -15,4 +15,5 @@ type Request struct {
 	Defect            int    `json:"defect_id"`
 	Checkpoint        int    `json:"checkpoint_id"`
 	Packing           string `json:"packing"`
+	Image             string `json:"image"`
 }

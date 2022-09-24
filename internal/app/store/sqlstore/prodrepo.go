@@ -389,7 +389,7 @@ func (r *Repo) AddDefectsTypes(id int, name string) error {
 	return nil
 }
 
-func (r *Repo) AddDefects(serial, name string, checkpoint, defect int) error {
+func (r *Repo) AddDefects(serial, name, photo string, checkpoint, defect int) error {
 
 	temp := serial[0:6]
 	type Model_ID struct {
@@ -400,8 +400,7 @@ func (r *Repo) AddDefects(serial, name string, checkpoint, defect int) error {
 	if err != nil {
 		return errors.New("serial xato")
 	}
-	rows, err := r.store.db.Query("insert into remont (serial, person_id, checkpoint_id, model_id, defect_id) values ($1, $2, $3, $4, $5)", serial, name, checkpoint, id.ID, defect)
-	fmt.Println(fmt.Sprint("insert into remont (serial, person_id, checkpoint_id, model_id, defect_id) values ($1, $2, $3, $4, $5)", serial, name, checkpoint, id.ID, defect))
+	rows, err := r.store.db.Query("insert into remont (serial, person_id, checkpoint_id, model_id, defect_id, photo) values ($1, $2, $3, $4, $5, $6)", serial, name, checkpoint, id.ID, defect, photo)
 	if err != nil {
 		return err
 
@@ -586,10 +585,12 @@ func (r *Repo) GetRemont() (interface{}, error) {
 		Checkpoint string `json:"checkpoint"`
 		Model      string `json:"model"`
 		Defect     string `json:"defect"`
+		Photo      string `json:"photo"`
 	}
 
 	rows, err := r.store.db.Query(`
-	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY') vaqt, r.person_id, c."name" as checkpoint, m."name" as model, d.defect_name as defect from remont r, checkpoints c, models m, defects d 
+	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY') vaqt, r.person_id, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo 
+	from remont r, checkpoints c, models m, defects d 
 	where r.status = 1 and d.id = r.defect_id and c.id = r.checkpoint_id and m.id = r.model_id order by r."input"
 	 `)
 	if err != nil {
@@ -607,7 +608,8 @@ func (r *Repo) GetRemont() (interface{}, error) {
 			&comp.Person,
 			&comp.Checkpoint,
 			&comp.Model,
-			&comp.Defect); err != nil {
+			&comp.Defect,
+			&comp.Photo); err != nil {
 			return nil, err
 		}
 		list = append(list, comp)
@@ -628,12 +630,14 @@ func (r *Repo) GetRemontToday() (interface{}, error) {
 		Checkpoint string `json:"checkpoint"`
 		Model      string `json:"model"`
 		Defect     string `json:"defect"`
+		Photo      string `json:"photo"`
 	}
 
 	currentTime := time.Now()
 
 	rows, err := r.store.db.Query(`
-	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY') vaqt, c."name" as checkpoint, m."name" as model, d.defect_name as defect from remont r, checkpoints c, models m, defects d 
+	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY') vaqt, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo 
+	from remont r, checkpoints c, models m, defects d 
 	where r.status = 1 and d.id = r.defect_id and c.id = r.checkpoint_id and m.id = r.model_id and r.input::date=to_date($1, 'YYYY-MM-DD')  order by r."input"
 	 `, currentTime)
 	if err != nil {
@@ -650,7 +654,8 @@ func (r *Repo) GetRemontToday() (interface{}, error) {
 			&comp.Vaqt,
 			&comp.Checkpoint,
 			&comp.Model,
-			&comp.Defect); err != nil {
+			&comp.Defect,
+			&comp.Photo); err != nil {
 			return nil, err
 		}
 		list = append(list, comp)
@@ -671,10 +676,12 @@ func (r *Repo) GetRemontByDate(date1, date2 string) (interface{}, error) {
 		Checkpoint string `json:"checkpoint"`
 		Model      string `json:"model"`
 		Defect     string `json:"defect"`
+		Photo      string `json:"photo"`
 	}
 
 	rows, err := r.store.db.Query(`
-	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY') vaqt, c."name" as checkpoint, m."name" as model, d.defect_name as defect from remont r, checkpoints c, models m, defects d 
+	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY') vaqt, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo
+	 from remont r, checkpoints c, models m, defects d 
 	where r.status = 1 
 	and d.id = r.defect_id 
 	and c.id = r.checkpoint_id 
@@ -698,7 +705,8 @@ func (r *Repo) GetRemontByDate(date1, date2 string) (interface{}, error) {
 			&comp.Vaqt,
 			&comp.Checkpoint,
 			&comp.Model,
-			&comp.Defect); err != nil {
+			&comp.Defect,
+			&comp.Photo); err != nil {
 			return nil, err
 		}
 		list = append(list, comp)

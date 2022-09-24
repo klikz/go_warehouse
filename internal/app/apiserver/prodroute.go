@@ -1,9 +1,15 @@
 package apiserver
 
 import (
+	"encoding/base64"
+	"image"
+	"image/jpeg"
+	"os"
+	"strings"
 	"warehouse/internal/app/models"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func (s *Server) GetLast(c *gin.Context) {
@@ -207,14 +213,52 @@ func (s *Server) AddDefects(c *gin.Context) {
 	temp2, _ := c.Get("checkpoint_id")
 	temp4, _ := c.Get("name")
 	temp5, _ := c.Get("defect_id")
+	temp6, _ := c.Get("image")
 
 	checkpoint := temp2.(int)
 	name := temp4.(string)
 	serial := temp.(string)
 	defect := temp5.(int)
+	image2 := temp6.(string)
 	// u.Serial, name, u.Line, id.ID, u.Defect
-	s.Logger.Info("serial:", serial, " name: ", name, " check: ", checkpoint, " def ", defect)
-	err := s.Store.Repo().AddDefects(serial, name, checkpoint, defect)
+	// s.Logger.Info("image:", image)
+
+	reader := base64.NewDecoder(base64.StdEncoding, strings.NewReader(image2))
+	m, formatString, err := image.Decode(reader)
+	if err != nil {
+		s.Logger.Error("AddDefects decode image: ", err)
+		resp.Result = "error"
+		resp.Err = "Error decode"
+		c.JSON(200, resp)
+		return
+	}
+	bounds := m.Bounds()
+	s.Logger.Info("base64toJpg: ", bounds, formatString)
+
+	//Encode from image format to writer
+	fileName := uuid.New().String() + ".jpg"
+	pngFilename := "D:\\premier\\v2\\Global\\media\\" + fileName
+	f, err := os.OpenFile(pngFilename, os.O_WRONLY|os.O_CREATE, 0777)
+
+	if err != nil {
+		s.Logger.Error("AddDefects write image: ", err)
+		resp.Result = "error"
+		resp.Err = "Error write"
+		c.JSON(200, resp)
+		return
+	}
+	defer f.Close()
+	err = jpeg.Encode(f, m, &jpeg.Options{Quality: 75})
+	if err != nil {
+		s.Logger.Error("AddDefects encode image: ", err)
+		resp.Result = "error"
+		resp.Err = "Error encode"
+		c.JSON(200, resp)
+		return
+	}
+	// fmt.Println("Jpg file", pngFilename, "created")
+
+	err = s.Store.Repo().AddDefects(serial, name, fileName, checkpoint, defect)
 	if err != nil {
 		s.Logger.Error("AddDefects: ", err)
 		resp.Result = "error"
@@ -222,6 +266,7 @@ func (s *Server) AddDefects(c *gin.Context) {
 		c.JSON(200, resp)
 		return
 	}
+
 	resp.Result = "ok"
 	c.JSON(200, resp)
 }
