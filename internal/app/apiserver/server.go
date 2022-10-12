@@ -41,6 +41,7 @@ func newServer(store sqlstore.Store) *Server {
 func (s *Server) configureRouter() {
 	s.Router.POST("users/login", s.Login)             // {"email": string, "password": string}
 	s.Router.POST("ware/outcome/file", s.OutcomeFile) //only excel file input
+	s.Router.POST("ware/gscode/file", s.GsCodeFile)
 
 	ware := s.Router.Group("/ware") //route for warehouse control
 	ware.Use(s.WareCheckRole())
@@ -68,6 +69,7 @@ func (s *Server) configureRouter() {
 		ware.POST("/bom/component", s.BomComponentInfo)                  // {"id":int, "token": string}
 		ware.POST("/bom/component/add", s.BomComponentAdd)               // {"id":int, "token": string}
 		ware.POST("/bom/component/delete", s.BomComponentDelete)         // {"model_id":int, "component_id":int, "token": string}
+		ware.POST("/gscode/get", s.GetKeys)                              //{"token": string}
 	}
 
 	global := s.Router.Group("/api") //Route for global use

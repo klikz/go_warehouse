@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/jpeg"
 	"os"
+	"reflect"
 	"strings"
 	"warehouse/internal/app/models"
 
@@ -96,7 +97,7 @@ func (s *Server) GetPackingLast(c *gin.Context) {
 	resp := models.Responce{}
 	data, err := s.Store.Repo().GetPackingLast()
 	if err != nil {
-		s.Logger.Error("GetSectorBalance: ", err)
+		s.Logger.Error("GetPackingLast: ", err)
 		resp.Result = "error"
 		resp.Err = "Wrong Credentials"
 		c.JSON(200, resp)
@@ -414,19 +415,24 @@ func (s *Server) SerialInput(c *gin.Context) {
 func (s *Server) PackingSerialInput(c *gin.Context) {
 	resp := models.Responce{}
 	temp, _ := c.Get("serial")
-	temp2, _ := c.Get("packing")
+	temp2, _ := c.Get("export")
+
+	// temp2, _ := c.Get("packing")
 	serial := temp.(string)
-	packing := temp2.(string)
+	export := temp2.(bool)
 
-	if packing == serial || packing == "" {
-		s.Logger.Error("SerialInput: ", "serial: ", serial, "packing: ", packing)
-		resp.Result = "error"
-		resp.Err = "Serial xato"
-		c.JSON(200, resp)
-		return
-	}
+	s.Logger.Info("export: ", temp2, "typeOf: ", reflect.TypeOf(temp2))
+	// packing := temp2.(string)
 
-	err := s.Store.Repo().PackingSerialInput(serial, packing)
+	// if packing == serial || packing == "" {
+	// 	s.Logger.Error("SerialInput: ", "serial: ", serial, "packing: ", packing)
+	// 	resp.Result = "error"
+	// 	resp.Err = "Serial xato"
+	// 	c.JSON(200, resp)
+	// 	return
+	// }
+
+	err := s.Store.Repo().PackingSerialInput(serial, export) //, packing)
 	if err != nil {
 		s.Logger.Error("SerialInput: ", err)
 		resp.Result = "error"

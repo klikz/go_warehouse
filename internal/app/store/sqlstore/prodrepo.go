@@ -1,17 +1,35 @@
 package sqlstore
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 	"warehouse/internal/app/models"
 
 	"github.com/sirupsen/logrus"
 )
+
+type PrinStruct struct {
+	LibraryID        string `json:"libraryID"`
+	AbsolutePath     string `json:"absolutePath"`
+	PrintRequestID   string `json:"printRequestID"`
+	Printer          string `json:"printer"`
+	StartingPosition int    `json:"startingPosition"`
+	Copies           int    `json:"copies"`
+	SerialNumbers    int    `json:"serialNumbers"`
+}
+
+type DataEntryControlsStruct struct {
+	Gscode string `json:"code"`
+	Model  string `json:"modelName"`
+	Serial string `json:"SerialNumber"`
+}
 
 func setPin(param, addres string) (interface{}, error) {
 	response, err := http.PostForm(addres, url.Values{
@@ -71,6 +89,28 @@ func CheckLaboratory(serial string) (string, error) {
 		return "", err
 	}
 	return string(body), nil
+}
+
+func PrintLocal(jsonStr []byte) error {
+	url := "http://192.168.5.166/BarTender/api/v1/print"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-Custom-Header", "myvalue")
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println("response Body:", string(body))
+
+	return nil
 }
 
 func (r *Repo) GetLast(line int) ([]models.Last, error) {
@@ -838,7 +878,7 @@ func (r *Repo) SerialInput(line int, serial string) error {
 	return nil
 }
 
-func (r *Repo) PackingSerialInput(serial, packing string) error {
+func (r *Repo) PackingSerialInput(serial string, export bool) error {
 
 	type Laboratory struct {
 		StartTime string `json:"start_time"`
@@ -848,34 +888,140 @@ func (r *Repo) PackingSerialInput(serial, packing string) error {
 		Result    string `json:"result"`
 	}
 
-	res, err := CheckLaboratory(serial)
-	if err != nil {
-		return errors.New("check laboratory err")
-	}
+	// res, err := CheckLaboratory(serial)
+	// if err != nil {
+	// 	return errors.New("check laboratory err")
+	// }
 
-	s := string(res)
-	data := Laboratory{}
-	json.Unmarshal([]byte(s), &data)
-	if data.Result == "No data" {
-		return errors.New("laboratoriyada muammo")
-	}
+	// s := string(res)
+	// data := Laboratory{}
+	// json.Unmarshal([]byte(s), &data)
+	// if data.Result == "No data" {
+	// 	return errors.New("laboratoriyada muammo")
+	// }
 	type ModelId struct {
-		id int
+		id   int
+		name string
 	}
 	var modelId ModelId
 	var serialSlice = serial[0:6]
-	//check address of station
-	//check model
-	if err := r.store.db.QueryRow("select m.id from models m where m.code = $1", serialSlice).Scan(&modelId.id); err != nil {
+
+	if err := r.store.db.QueryRow("select m.id, m.name from models m where m.code = $1", serialSlice).Scan(&modelId.id, &modelId.name); err != nil {
 		return errors.New("serial xato")
 	}
 
-	rows, err := r.store.db.Query("insert into packing (serial, packing, model_id) values ($1, $2, $3)", serial, packing, modelId.id)
-
+	rows, err := r.store.db.Query("insert into packing (serial, model_id) values ($1, $2)", serial, modelId.id)
 	if err != nil {
+		errString := err.Error()
+		if strings.Contains(errString, "duplicate key") {
+			// logrus.Error("dublicate: ", err)
+			code := ""
+			if err := r.store.db.QueryRow(`select g."data" from gs g where product = $1`, serial).Scan(&code); err != nil {
+				return err
+			}
+			// data := PrinStruct{}
+			// data.LibraryID = "3b2083dd-b897-48db-8d0a-488ebe0be1ca"
+			// data.AbsolutePath = "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/001.btw"
+			// data.PrintRequestID = "fe80480e-1f94-4A2f-8947-e492800623aa"
+			// data.Printer = "Gainscha GS-3405T"
+			// data.StartingPosition = 0
+			// data.Copies = 0
+			// data.SerialNumbers = 0
+			// data.DataEntryControls.Serial = serial
+			// data.DataEntryControls.Model = modelId.name
+			// data.DataEntryControls.Gscode = code
+			// tempCode := "010478009290005621V=bffCJKLW2FfrhaR%>h91UZF092ak14ZRy5J2fTaYD0yQ9sB6pz47rto7R/43gAL/0GCTk="
+			var data = []byte(fmt.Sprintf(`
+			{
+				"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+  				"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s.btw",
+				"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+				"printer": "Gainscha GS-3405T",
+				"startingPosition": 0,
+				"copies": 0,
+				"serialNumbers": 0,
+				"dataEntryControls": {
+						"modelName": "%s",
+						"code": "%s",
+						"SerialNumber": "%s"
+  				}
+
+				}`, modelId.name, modelId.name, code, serial))
+			PrintLocal(data)
+			// logrus.Info("code: ", code, "serial: ", serial, "export: ", export)
+
+			return errors.New("dublicate")
+		}
+
 		return err
 	}
 	defer rows.Close()
+
+	type GSCode struct {
+		ID   int
+		Data string
+	}
+	codeData := GSCode{}
+
+	if err := r.store.db.QueryRow("select g.id, g.data from gs g where g.model = $1 and g.status = true", modelId.id).Scan(&codeData.ID, &codeData.Data); err != nil {
+		return errors.New("keys not found")
+	}
+	logrus.Info("id: ", codeData.ID)
+	_, err = r.store.db.Exec(`update gs set product = $1, status = false where id = $2`, serial, codeData.ID)
+	if err != nil {
+		logrus.Info("update error: ", err)
+		return err
+	}
+
+	var data1 = []byte(fmt.Sprintf(`
+			{
+  				"absolutePath": "C:/inetpub/wwwroot/BarTender/Documents/premier/%s_1.btw",
+				"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+				"printer": "Gainscha GS-3405T_1",
+				"startingPosition": 0,
+				"copies": 0,
+				"serialNumbers": 0,
+				"dataEntryControls": {
+						"modelName": "%s",
+						"code": "%s",
+						"SerialNumber": "%s"
+  				}
+
+				}`, serialSlice, modelId.name, codeData.Data, serial))
+
+	var data2 = []byte(fmt.Sprintf(`
+			{
+  				"absolutePath": "C:/inetpub/wwwroot/BarTender/Documents/premier/%s_2.btw",
+				"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+				"printer": "Gainscha GS-3405T_2",
+				"startingPosition": 0,
+				"copies": 0,
+				"serialNumbers": 0,
+				"dataEntryControls": {
+						"modelName": "%s",
+						"code": "%s",
+						"SerialNumber": "%s"
+  				}
+
+				}`, serialSlice, modelId.name, codeData.Data, serial))
+	// var data = []byte(fmt.Sprintf(`
+	// 		{
+	// 			"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+	// 			"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s.btw",
+	// 			"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+	// 			"printer": "Gainscha GS-3405T",
+	// 			"startingPosition": 0,
+	// 			"copies": 0,
+	// 			"serialNumbers": 0,
+	// 			"dataEntryControls": {
+	// 					"modelName": "%s",
+	// 					"code": "%s",
+	// 					"SerialNumber": "%s"
+	// 			}
+
+	// 			}`, modelId.name, modelId.name, codeData.Data, serial))
+	PrintLocal(data1)
+	PrintLocal(data2)
 
 	return nil
 }

@@ -22,6 +22,7 @@ type Component struct {
 	Model_ID      int     `json:"model_id"`
 	Date1         string  `json:"date1"`
 	Date2         string  `json:"date2"`
+	Export        bool    `json:"export"`
 }
 
 type Last struct {

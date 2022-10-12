@@ -666,3 +666,46 @@ func (r *Repo) FileInput(f []models.FileInput) ([]models.FileInput, error) {
 	}
 	return f, nil
 }
+
+func (r *Repo) InsertGsCode(gscode string, model int) error {
+	logrus.Info("key: ", gscode, " model: ", model)
+	_, err := r.store.db.Exec(`insert into gs ("data", model) values ($1, $2)`, gscode, model)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *Repo) GetKeys() (interface{}, error) {
+
+	type Report struct {
+		Name     string `json:"name"`
+		Quantity int    `json:"quantity"`
+	}
+
+	rows, err := r.store.db.Query(`
+	select m."name", count(g.id) as quantity 
+	from gs g, models m  
+	where g.status = true and m.id = g.model 
+	group by m."name"`)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	keys := []Report{}
+
+	for rows.Next() {
+		var key Report
+		if err := rows.Scan(&key.Name, &key.Quantity); err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return keys, nil
+}

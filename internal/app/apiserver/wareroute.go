@@ -1,7 +1,13 @@
 package apiserver
 
 import (
+	"encoding/csv"
+	"encoding/json"
+	"io"
+	"io/ioutil"
 	"mime/multipart"
+	"os"
+	"strings"
 	"warehouse/internal/app/models"
 
 	"github.com/bingoohuang/xlsx"
@@ -480,4 +486,111 @@ func (s *Server) BomComponentDelete(c *gin.Context) {
 	}
 	resp.Result = "ok"
 	c.JSON(200, resp)
+}
+
+func (s *Server) GsCodeFile(c *gin.Context) {
+	resp := models.Responce{}
+
+	type FileToken struct {
+		Model int    `json:"model"`
+		Token string `json:"token"`
+	}
+
+	type Form struct {
+		File  *multipart.FileHeader `form:"gscode" binding:"required"`
+		File2 *multipart.FileHeader `form:"data" binding:"required"`
+	}
+
+	var form Form
+	err := c.ShouldBind(&form)
+	if err != nil {
+		s.Logger.Error("OutcomeFile: ", err)
+		resp.Result = "error"
+		resp.Err = err
+		c.JSON(200, resp)
+		return
+	}
+	c.SaveUploadedFile(form.File, "temp.csv")
+	c.SaveUploadedFile(form.File2, "temp.json")
+
+	plan, _ := ioutil.ReadFile("temp.json")
+	data := &FileToken{}
+	err = json.Unmarshal(plan, &data)
+	if err != nil {
+		s.Logger.Error(err)
+	}
+
+	parsedToken, err := ParseToken(data.Token)
+	if err != nil {
+		s.Logger.Error("WareCheckRole Wrong Token: ", data.Token, " error: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(401, resp)
+		c.Abort()
+		return
+	}
+
+	res, err := s.Store.Repo().CheckRole(c.Request.URL.String(), parsedToken.Email)
+	if err != nil {
+		s.Logger.Error("WareCheckRole: ", data.Token, " error: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(401, resp)
+		c.Abort()
+		return
+	}
+
+	if !res {
+		s.Logger.Error("WareCheckRole: ", data.Token, " error: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(401, resp)
+		c.Abort()
+		return
+	}
+
+	file, err := os.Open("temp.csv")
+	if err != nil {
+		s.Logger.Error(err)
+	}
+
+	reader := csv.NewReader(file)
+	reader.Comma = '@'
+	reader.LazyQuotes = true
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			s.Logger.Error("csv decoding error: ", err)
+		}
+		res := strings.ReplaceAll(record[0], "", "")
+		if err := s.Store.Repo().InsertGsCode(res, data.Model); err != nil {
+			resp.Result = "error"
+			resp.Err = err
+			c.JSON(200, resp)
+			return
+		}
+		// s.Logger.Info(record[0])
+
+	}
+	defer file.Close()
+	resp.Result = "ok"
+
+	c.JSON(200, resp)
+}
+
+func (s *Server) GetKeys(c *gin.Context) {
+
+	resp := models.Responce{}
+	data, err := s.Store.Repo().GetKeys()
+	if err != nil {
+		s.Logger.Error("GetKeys: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	c.JSON(200, data)
 }
