@@ -1010,7 +1010,7 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 				"serialNumbers": 0,
 				"dataEntryControls": {
 						"GSCode": "%s",
-						"Serial": "%s"
+						"SeriaInput": "%s"
 				}
 
 				}`, serialSlice, codeData.Data, serial))
@@ -1024,7 +1024,7 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 				"copies": 0,
 				"serialNumbers": 0,
 				"dataEntryControls": {
-						"Serial": "%s"
+						"SeriaInput": "%s"
 				}
 
 				}`, serialSlice, serial))
