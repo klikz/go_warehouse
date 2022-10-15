@@ -16,5 +16,5 @@ type Request struct {
 	Checkpoint        int    `json:"checkpoint_id"`
 	Packing           string `json:"packing"`
 	Image             string `json:"image"`
-	Export            bool   `json:"export"`
+	Retry             bool   `json:"retry"`
 }

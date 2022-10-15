@@ -92,7 +92,7 @@ func CheckLaboratory(serial string) (string, error) {
 }
 
 func PrintLocal(jsonStr []byte) error {
-	url := "http://192.168.5.166/BarTender/api/v1/print"
+	url := "http://192.168.5.123/BarTender/api/v1/print"
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 	if err != nil {
 		return err
@@ -108,8 +108,33 @@ func PrintLocal(jsonStr []byte) error {
 	defer resp.Body.Close()
 
 	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println("response Body:", string(body))
+	var jsonMap map[string]interface{}
+	json.Unmarshal([]byte(string(body)), &jsonMap)
 
+	success := jsonMap["success"]
+	count := 0
+
+	logrus.Info("PrintLocal: ", success)
+
+	if success == false {
+		logrus.Info("PrintLocal == false")
+		if count < 3 {
+			url := "http://192.168.5.123/BarTender/api/v1/print"
+			req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+			if err != nil {
+				return err
+			}
+			req.Header.Set("X-Custom-Header", "myvalue")
+			req.Header.Set("Content-Type", "application/json")
+
+			client := &http.Client{}
+			resp, err := client.Do(req)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+		}
+	}
 	return nil
 }
 
@@ -878,7 +903,7 @@ func (r *Repo) SerialInput(line int, serial string) error {
 	return nil
 }
 
-func (r *Repo) PackingSerialInput(serial string, export bool) error {
+func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 
 	type Laboratory struct {
 		StartTime string `json:"start_time"`
@@ -888,17 +913,17 @@ func (r *Repo) PackingSerialInput(serial string, export bool) error {
 		Result    string `json:"result"`
 	}
 
-	// res, err := CheckLaboratory(serial)
-	// if err != nil {
-	// 	return errors.New("check laboratory err")
-	// }
+	res, err := CheckLaboratory(serial)
+	if err != nil {
+		return errors.New("check laboratory err")
+	}
 
-	// s := string(res)
-	// data := Laboratory{}
-	// json.Unmarshal([]byte(s), &data)
-	// if data.Result == "No data" {
-	// 	return errors.New("laboratoriyada muammo")
-	// }
+	s := string(res)
+	data := Laboratory{}
+	json.Unmarshal([]byte(s), &data)
+	if data.Result == "No data" {
+		return errors.New("laboratoriyada muammo")
+	}
 	type ModelId struct {
 		id   int
 		name string
@@ -912,47 +937,50 @@ func (r *Repo) PackingSerialInput(serial string, export bool) error {
 
 	rows, err := r.store.db.Query("insert into packing (serial, model_id) values ($1, $2)", serial, modelId.id)
 	if err != nil {
-		errString := err.Error()
-		if strings.Contains(errString, "duplicate key") {
-			// logrus.Error("dublicate: ", err)
-			code := ""
-			if err := r.store.db.QueryRow(`select g."data" from gs g where product = $1`, serial).Scan(&code); err != nil {
-				return err
+		if retry {
+			errString := err.Error()
+			if strings.Contains(errString, "duplicate key") || strings.Contains(errString, "packing_un_serial") {
+				code := ""
+				if err := r.store.db.QueryRow(`select g."data" from gs g where product = $1`, serial).Scan(&code); err != nil {
+					return err
+				}
+				var data1 = []byte(fmt.Sprintf(`
+				{
+					"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+					"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s_1.btw",
+					"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+					"printer": "Gainscha GS-3405T_1",
+					"startingPosition": 0,
+					"copies": 0,
+					"serialNumbers": 0,
+					"dataEntryControls": {
+							"GSCodeInput": "%s",
+							"SeriaInput": "%s"
+					}
+
+					}`, serialSlice, code, serial))
+				logrus.Info("serialSlice: ", serialSlice, "codeData.Data: ", code, "serial: ", serial)
+				var data2 = []byte(fmt.Sprintf(`
+				{
+					"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+					"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s_2.btw",
+					"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+					"printer": "Gainscha GS-3405T_2",
+					"startingPosition": 0,
+					"copies": 0,
+					"serialNumbers": 0,
+					"dataEntryControls": {
+							"SeriaInput": "%s"
+					}
+
+					}`, serialSlice, serial))
+				PrintLocal(data1)
+				PrintLocal(data2)
+
+				return errors.New("dublicate printed")
 			}
-			// data := PrinStruct{}
-			// data.LibraryID = "3b2083dd-b897-48db-8d0a-488ebe0be1ca"
-			// data.AbsolutePath = "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/001.btw"
-			// data.PrintRequestID = "fe80480e-1f94-4A2f-8947-e492800623aa"
-			// data.Printer = "Gainscha GS-3405T"
-			// data.StartingPosition = 0
-			// data.Copies = 0
-			// data.SerialNumbers = 0
-			// data.DataEntryControls.Serial = serial
-			// data.DataEntryControls.Model = modelId.name
-			// data.DataEntryControls.Gscode = code
-			// tempCode := "010478009290005621V=bffCJKLW2FfrhaR%>h91UZF092ak14ZRy5J2fTaYD0yQ9sB6pz47rto7R/43gAL/0GCTk="
-			var data = []byte(fmt.Sprintf(`
-			{
-				"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
-  				"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s.btw",
-				"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
-				"printer": "Gainscha GS-3405T",
-				"startingPosition": 0,
-				"copies": 0,
-				"serialNumbers": 0,
-				"dataEntryControls": {
-						"modelName": "%s",
-						"code": "%s",
-						"SerialNumber": "%s"
-  				}
-
-				}`, modelId.name, modelId.name, code, serial))
-			PrintLocal(data)
-			// logrus.Info("code: ", code, "serial: ", serial, "export: ", export)
-
-			return errors.New("dublicate")
 		}
-
+		logrus.Info("ProdRepo: err, retry = false")
 		return err
 	}
 	defer rows.Close()
@@ -966,60 +994,40 @@ func (r *Repo) PackingSerialInput(serial string, export bool) error {
 	if err := r.store.db.QueryRow("select g.id, g.data from gs g where g.model = $1 and g.status = true", modelId.id).Scan(&codeData.ID, &codeData.Data); err != nil {
 		return errors.New("keys not found")
 	}
-	logrus.Info("id: ", codeData.ID)
 	_, err = r.store.db.Exec(`update gs set product = $1, status = false where id = $2`, serial, codeData.ID)
 	if err != nil {
 		logrus.Info("update error: ", err)
 		return err
 	}
-
 	var data1 = []byte(fmt.Sprintf(`
 			{
-  				"absolutePath": "C:/inetpub/wwwroot/BarTender/Documents/premier/%s_1.btw",
+				"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+				"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s_1.btw",
 				"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
 				"printer": "Gainscha GS-3405T_1",
 				"startingPosition": 0,
 				"copies": 0,
 				"serialNumbers": 0,
 				"dataEntryControls": {
-						"modelName": "%s",
-						"code": "%s",
-						"SerialNumber": "%s"
-  				}
+						"GSCode": "%s",
+						"Serial": "%s"
+				}
 
-				}`, serialSlice, modelId.name, codeData.Data, serial))
-
+				}`, serialSlice, codeData.Data, serial))
 	var data2 = []byte(fmt.Sprintf(`
 			{
-  				"absolutePath": "C:/inetpub/wwwroot/BarTender/Documents/premier/%s_2.btw",
+				"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+				"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s_2.btw",
 				"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
 				"printer": "Gainscha GS-3405T_2",
 				"startingPosition": 0,
 				"copies": 0,
 				"serialNumbers": 0,
 				"dataEntryControls": {
-						"modelName": "%s",
-						"code": "%s",
-						"SerialNumber": "%s"
-  				}
+						"Serial": "%s"
+				}
 
-				}`, serialSlice, modelId.name, codeData.Data, serial))
-	// var data = []byte(fmt.Sprintf(`
-	// 		{
-	// 			"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
-	// 			"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s.btw",
-	// 			"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
-	// 			"printer": "Gainscha GS-3405T",
-	// 			"startingPosition": 0,
-	// 			"copies": 0,
-	// 			"serialNumbers": 0,
-	// 			"dataEntryControls": {
-	// 					"modelName": "%s",
-	// 					"code": "%s",
-	// 					"SerialNumber": "%s"
-	// 			}
-
-	// 			}`, modelId.name, modelId.name, codeData.Data, serial))
+				}`, serialSlice, serial))
 	PrintLocal(data1)
 	PrintLocal(data2)
 

@@ -5,7 +5,6 @@ import (
 	"image"
 	"image/jpeg"
 	"os"
-	"reflect"
 	"strings"
 	"warehouse/internal/app/models"
 
@@ -415,13 +414,13 @@ func (s *Server) SerialInput(c *gin.Context) {
 func (s *Server) PackingSerialInput(c *gin.Context) {
 	resp := models.Responce{}
 	temp, _ := c.Get("serial")
-	temp2, _ := c.Get("export")
+	temp2, _ := c.Get("retry")
 
 	// temp2, _ := c.Get("packing")
 	serial := temp.(string)
-	export := temp2.(bool)
+	retry := temp2.(bool)
 
-	s.Logger.Info("export: ", temp2, "typeOf: ", reflect.TypeOf(temp2))
+	s.Logger.Info("Route: PackingSerialInput, retry: ", retry)
 	// packing := temp2.(string)
 
 	// if packing == serial || packing == "" {
@@ -432,7 +431,7 @@ func (s *Server) PackingSerialInput(c *gin.Context) {
 	// 	return
 	// }
 
-	err := s.Store.Repo().PackingSerialInput(serial, export) //, packing)
+	err := s.Store.Repo().PackingSerialInput(serial, retry) //, packing)
 	if err != nil {
 		s.Logger.Error("SerialInput: ", err)
 		resp.Result = "error"

@@ -90,7 +90,7 @@ func (s *Server) NoCheckRole() gin.HandlerFunc {
 		c.Set("defect", req.Defect)
 		c.Set("checkpoint", req.Checkpoint)
 		c.Set("packing", req.Packing)
-		c.Set("export", req.Export)
+		c.Set("retry", req.Retry)
 
 	}
 }
@@ -158,7 +158,7 @@ func (s *Server) WareCheckRole() gin.HandlerFunc {
 		c.Set("component_id", req.Component_id)
 		c.Set("date1", req.Date1)
 		c.Set("date2", req.Date2)
-		c.Set("export", req.Export)
+		c.Set("retry", req.Retry)
 
 	}
 }
