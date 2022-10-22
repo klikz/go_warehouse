@@ -353,6 +353,13 @@ func (r *Repo) InsertUpdateModel(name, code, comment string, id int) error {
 	if err != nil {
 		return err
 	}
+
+	_, err = r.store.db.Exec(fmt.Sprintf(`
+	insert into metall_serial (model_id) values (%d)
+	`, new_id))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

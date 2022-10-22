@@ -138,7 +138,7 @@ func (s *Server) WareCheckRole() gin.HandlerFunc {
 			return
 		}
 		s.Logger.Info("Action URL: ", c.Request.URL.String(), " user: ", parsedToken.Email)
-
+		s.Logger.Info("quantity: ", req.Quantity)
 		c.Set("available", req.Available)
 		c.Set("id", req.ID)
 		c.Set("code", req.Code)
@@ -159,6 +159,7 @@ func (s *Server) WareCheckRole() gin.HandlerFunc {
 		c.Set("date1", req.Date1)
 		c.Set("date2", req.Date2)
 		c.Set("retry", req.Retry)
+		c.Set("line", req.Line)
 
 	}
 }

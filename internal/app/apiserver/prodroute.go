@@ -92,6 +92,26 @@ func (s *Server) GetSectorBalance(c *gin.Context) {
 	c.JSON(200, data)
 }
 
+func (s *Server) SectorBalanceUpdate(c *gin.Context) {
+	// resp := models.Responce{}
+	// temp, _ := c.Get("line")
+	// temp2, _ := c.Get("component_id")
+	// temp3, _ := c.Get("quantity")
+	// line := temp.(int)
+	// quantity := temp2.(float64)
+	// component_id := temp3.(int)
+
+	// err := s.Store.Repo().SectorBalanceUpdate(line, component_id, quantity)
+	// if err != nil {
+	// 	s.Logger.Error("GetSectorBalanceUpdate: ", err)
+	// 	resp.Result = "error"
+	// 	resp.Err = "Wrong Credentials"
+	// 	c.JSON(200, resp)
+	// 	return
+	// }
+	// resp.Result = "ok"
+	// c.JSON(200, resp)
+}
 func (s *Server) GetPackingLast(c *gin.Context) {
 	resp := models.Responce{}
 	data, err := s.Store.Repo().GetPackingLast()
@@ -497,4 +517,24 @@ func (s *Server) GalileoTodayModels(c *gin.Context) {
 		return
 	}
 	c.JSON(200, data)
+}
+
+func (s *Server) MetallSerial(c *gin.Context) {
+
+	resp := models.Responce{}
+	temp, _ := c.Get("id")
+
+	id := temp.(int)
+
+	err := s.Store.Repo().Metall_Serial(id)
+	if err != nil {
+		s.Logger.Error("Metall_Serial: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	resp.Result = "ok"
+	c.JSON(200, resp)
 }

@@ -92,49 +92,78 @@ func CheckLaboratory(serial string) (string, error) {
 }
 
 func PrintLocal(jsonStr []byte) error {
-	url := "http://192.168.5.123/BarTender/api/v1/print"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("X-Custom-Header", "myvalue")
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	body, _ := ioutil.ReadAll(resp.Body)
-	var jsonMap map[string]interface{}
-	json.Unmarshal([]byte(string(body)), &jsonMap)
-
-	success := jsonMap["success"]
+	reprint := true
 	count := 0
-
-	logrus.Info("PrintLocal: ", success)
-
-	if success == false {
-		logrus.Info("PrintLocal == false")
-		if count < 3 {
-			url := "http://192.168.5.123/BarTender/api/v1/print"
-			req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
-			if err != nil {
-				return err
-			}
-			req.Header.Set("X-Custom-Header", "myvalue")
-			req.Header.Set("Content-Type", "application/json")
-
-			client := &http.Client{}
-			resp, err := client.Do(req)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
+	for reprint {
+		if count > 3 {
+			return errors.New("qaytadan urinib ko'ring")
 		}
+		logrus.Info("Printing started")
+		logrus.Info("sending data: ", string(jsonStr))
+		url := "http://192.168.5.123/BarTender/api/v1/print"
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("X-Custom-Header", "myvalue")
+		req.Header.Set("Content-Type", "application/json")
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+
+		body, _ := ioutil.ReadAll(resp.Body)
+		var jsonMap map[string]interface{}
+		json.Unmarshal([]byte(string(body)), &jsonMap)
+		logrus.Info("body: ", string(body))
+
+		if strings.Contains(string(body), "BarTender успешно отправил задание") {
+			reprint = false
+		}
+		count++
 	}
+
+	logrus.Info("Printing end")
+	return nil
+}
+
+func PrintMetall(jsonStr []byte) error {
+	reprint := true
+	count := 0
+	for reprint {
+		if count > 3 {
+			return errors.New("qaytadan urinib ko'ring")
+		}
+		logrus.Info("Printing started")
+		logrus.Info("sending data: ", string(jsonStr))
+		url := "http://192.168.5.139/BarTender/api/v1/print"
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("X-Custom-Header", "myvalue")
+		req.Header.Set("Content-Type", "application/json")
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+
+		body, _ := ioutil.ReadAll(resp.Body)
+		var jsonMap map[string]interface{}
+		json.Unmarshal([]byte(string(body)), &jsonMap)
+		logrus.Info("body: ", string(body))
+
+		if strings.Contains(string(body), "BarTender успешно отправил задание") {
+			reprint = false
+		}
+		count++
+	}
+
+	logrus.Info("Printing end")
 	return nil
 }
 
@@ -940,42 +969,43 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 		if retry {
 			errString := err.Error()
 			if strings.Contains(errString, "duplicate key") || strings.Contains(errString, "packing_un_serial") {
-				code := ""
-				if err := r.store.db.QueryRow(`select g."data" from gs g where product = $1`, serial).Scan(&code); err != nil {
+				codeWithError := ""
+				if err := r.store.db.QueryRow(`select g."data" from gs g where product = $1`, serial).Scan(&codeWithError); err != nil {
 					return err
 				}
+				code := strings.ReplaceAll(codeWithError, `"`, ``)
 				var data1 = []byte(fmt.Sprintf(`
 				{
 					"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
 					"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s_1.btw",
 					"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
-					"printer": "Gainscha GS-3405T_1",
+					"printer": "Gainscha GS-3405T",
 					"startingPosition": 0,
 					"copies": 0,
 					"serialNumbers": 0,
 					"dataEntryControls": {
-							"GSCodeInput": "%s",
+							"GSCodeInput": "%v",
 							"SeriaInput": "%s"
 					}
 
 					}`, serialSlice, code, serial))
 				logrus.Info("serialSlice: ", serialSlice, "codeData.Data: ", code, "serial: ", serial)
-				var data2 = []byte(fmt.Sprintf(`
-				{
-					"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
-					"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s_2.btw",
-					"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
-					"printer": "Gainscha GS-3405T_2",
-					"startingPosition": 0,
-					"copies": 0,
-					"serialNumbers": 0,
-					"dataEntryControls": {
-							"SeriaInput": "%s"
-					}
+				// var data2 = []byte(fmt.Sprintf(`
+				// {
+				// 	"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+				// 	"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s_2.btw",
+				// 	"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+				// 	"printer": "Gainscha GS-3405T 2",
+				// 	"startingPosition": 0,
+				// 	"copies": 0,
+				// 	"serialNumbers": 0,
+				// 	"dataEntryControls": {
+				// 			"SeriaInput": "%s"
+				// 	}
 
-					}`, serialSlice, serial))
+				// 	}`, serialSlice, serial))
 				PrintLocal(data1)
-				PrintLocal(data2)
+				// PrintLocal(data2)
 
 				return errors.New("dublicate printed")
 			}
@@ -1004,7 +1034,7 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 				"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
 				"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s_1.btw",
 				"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
-				"printer": "Gainscha GS-3405T_1",
+				"printer": "Gainscha GS-3405T",
 				"startingPosition": 0,
 				"copies": 0,
 				"serialNumbers": 0,
@@ -1012,24 +1042,23 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 						"GSCode": "%s",
 						"SeriaInput": "%s"
 				}
+			}`, serialSlice, codeData.Data, serial))
+	// var data2 = []byte(fmt.Sprintf(`
+	// 		{
+	// 			"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+	// 			"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s_2.btw",
+	// 			"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+	// 			"printer": "Gainscha GS-3405T 2",
+	// 			"startingPosition": 0,
+	// 			"copies": 0,
+	// 			"serialNumbers": 0,
+	// 			"dataEntryControls": {
+	// 					"SeriaInput": "%s"
+	// 			}
 
-				}`, serialSlice, codeData.Data, serial))
-	var data2 = []byte(fmt.Sprintf(`
-			{
-				"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
-				"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s_2.btw",
-				"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
-				"printer": "Gainscha GS-3405T_2",
-				"startingPosition": 0,
-				"copies": 0,
-				"serialNumbers": 0,
-				"dataEntryControls": {
-						"SeriaInput": "%s"
-				}
-
-				}`, serialSlice, serial))
+	// 			}`, serialSlice, serial))
 	PrintLocal(data1)
-	PrintLocal(data2)
+	// PrintLocal(data2)
 
 	return nil
 }
@@ -1167,4 +1196,64 @@ func (r *Repo) GalileoTodayModels() (interface{}, error) {
 		return byModel, err
 	}
 	return byModel, nil
+}
+
+func (r *Repo) Metall_Serial(id int) error {
+
+	type Data struct {
+		Code string `json:"code"`
+		Name string `json:"name"`
+	}
+
+	info := Data{}
+
+	count := 0
+
+	if err := r.store.db.QueryRow(`select m2.code, m2."name" from public.models m2 where m2.id = $1`, id).Scan(&info.Code, &info.Name); err != nil {
+		return err
+	}
+
+	//update count
+	if err := r.store.db.QueryRow(`update metall_serial set "last" = "last" + 1 where model_id = $1 returning "last" `, id).Scan(&count); err != nil {
+		return err
+	}
+
+	countString := ""
+
+	switch {
+	case count < 10:
+		countString = fmt.Sprintf(`%s000000%d`, info.Code, count)
+
+	case count < 100:
+		countString = fmt.Sprintf(`%s00000%d`, info.Code, count)
+	case count < 1000:
+		countString = fmt.Sprintf(`%s0000%d`, info.Code, count)
+	case count < 10000:
+		countString = fmt.Sprintf(`%s000%d`, info.Code, count)
+	case count < 100000:
+		countString = fmt.Sprintf(`%s00%d`, info.Code, count)
+	case count < 1000000:
+		countString = fmt.Sprintf(`%s0%d`, info.Code, count)
+	case count > 1000000:
+		countString = fmt.Sprintf(`%s%d`, info.Code, count)
+	}
+
+	data := []byte(fmt.Sprintf(`
+	{
+		"libraryID": "986278f7-755f-4412-940f-a89e893947de",
+		"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/serial.btw",
+		"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+		"printer": "Gainscha GS-3405T",
+		"startingPosition": 0,
+		"copies": 0,
+		"serialNumbers": 0,
+		"dataEntryControls": {
+				"Printer": "Gainscha GS-3405T",
+				"ModelInput": "%s",
+				"SerialInput": "%s"
+		}
+	}`, info.Name, countString))
+	PrintMetall(data)
+	// logrus.Info(string(data))
+	return nil
 }
