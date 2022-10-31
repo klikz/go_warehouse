@@ -8,10 +8,39 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func (r *Repo) GetAllComponentsOutcome() (interface{}, error) {
+	rows, err := r.store.db.Query(`
+	select c.available, c.id, c.code, c."name", c2."name" as Checkpoint, c2.id as checkpoint_id,  c.unit, c.specs, c.photo, to_char(c."time", 'DD-MM-YYYY HH24:MI') "time", 
+	t."name" as type, t.id as type_id, c.weight, c.inner_code 
+	from components c 
+	join checkpoints c2 on c2.id = c."checkpoint" join "types" t on t.id  = c."type" 
+	where c.status = 1 and not c."type" = 3
+	order by c.code`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var components []models.Component
+
+	for rows.Next() {
+		var comp models.Component
+		if err := rows.Scan(&comp.Available, &comp.ID, &comp.Code,
+			&comp.Name, &comp.Checkpoint, &comp.Checkpoint_id, &comp.Unit, &comp.Specs, &comp.Photo, &comp.Time, &comp.Type, &comp.Type_id, &comp.Weight, &comp.InnerCode); err != nil {
+			return components, err
+		}
+		components = append(components, comp)
+	}
+	if err = rows.Err(); err != nil {
+		return components, err
+	}
+	return components, nil
+}
 func (r *Repo) GetAllComponents() (interface{}, error) {
 	rows, err := r.store.db.Query(`
 	select c.available, c.id, c.code, c."name", c2."name" as Checkpoint, c2.id as checkpoint_id,  c.unit, c.specs, c.photo, to_char(c."time", 'DD-MM-YYYY HH24:MI') "time", 
-	t."name" as type, t.id as type_id, c.weight from components c 
+	t."name" as type, t.id as type_id, c.weight, c.inner_code 
+	from components c 
 	join checkpoints c2 on c2.id = c."checkpoint" join "types" t on t.id  = c."type" 
 	where c.status = 1
 	order by c.code`)
@@ -25,7 +54,7 @@ func (r *Repo) GetAllComponents() (interface{}, error) {
 	for rows.Next() {
 		var comp models.Component
 		if err := rows.Scan(&comp.Available, &comp.ID, &comp.Code,
-			&comp.Name, &comp.Checkpoint, &comp.Checkpoint_id, &comp.Unit, &comp.Specs, &comp.Photo, &comp.Time, &comp.Type, &comp.Type_id, &comp.Weight); err != nil {
+			&comp.Name, &comp.Checkpoint, &comp.Checkpoint_id, &comp.Unit, &comp.Specs, &comp.Photo, &comp.Time, &comp.Type, &comp.Type_id, &comp.Weight, &comp.InnerCode); err != nil {
 			return components, err
 		}
 		components = append(components, comp)
@@ -40,11 +69,12 @@ func (r *Repo) GetComponent(id int) (models.Component, error) {
 	var comp models.Component
 	if err := r.store.db.QueryRow(`
 	select c.available, c.id, c.code, c.status, c."name", c2."name" as Checkpoint, c2.id as checkpoint_id,  c.unit, c.specs, c.photo, to_char(c."time", 'DD-MM-YYYY HH24:MI') "time", 
-	t."name" as type, t.id as type_id, c.weight from components c join checkpoints c2 on c2.id = c."checkpoint" join "types" t on t.id  = c."type" where c.id = $1 order by c.code`, id).Scan(
+	t."name" as type, t.id as type_id, c.weight, c.inner_code 
+	from components c join checkpoints c2 on c2.id = c."checkpoint" join "types" t on t.id  = c."type" where c.id = $1 order by c.code`, id).Scan(
 		&comp.Available, &comp.ID, &comp.Code, &comp.Status,
 		&comp.Name, &comp.Checkpoint, &comp.Checkpoint_id, &comp.Unit,
 		&comp.Specs, &comp.Photo, &comp.Time, &comp.Type, &comp.Type_id,
-		&comp.Weight); err != nil {
+		&comp.Weight, &comp.InnerCode); err != nil {
 		return comp, err
 	}
 	return comp, nil
@@ -60,9 +90,10 @@ func (r *Repo) UpdateComponent(c *models.Component) error {
 	photo = $5, 
 	specs = $6, 
 	"type" = $7, 
-	weight = $8 
-	where id = $9
-	`, c.Code, c.Name, c.Checkpoint_id, c.Unit, c.Photo, c.Specs, c.Type_id, c.Weight, c.ID)
+	weight = $8, 
+	inner_code = $9
+	where id = $10
+	`, c.Code, c.Name, c.Checkpoint_id, c.Unit, c.Photo, c.Specs, c.Type_id, c.Weight, c.InnerCode, c.ID)
 	if err != nil {
 		return err
 	}
@@ -82,9 +113,10 @@ func (r *Repo) AddComponent(c *models.Component) error {
 	photo = $5, 
 	specs = $6, 
 	"type" = $7, 
-	weight = $8 
-	where id = $9
-	`, c.Code, c.Name, c.Checkpoint_id, c.Unit, c.Photo, c.Specs, c.Type_id, c.Weight, c.ID)
+	weight = $8,
+	inner_code = $9
+	where id = $10
+	`, c.Code, c.Name, c.Checkpoint_id, c.Unit, c.Photo, c.Specs, c.Type_id, c.Weight, c.InnerCode, c.ID)
 		if err != nil {
 			return err
 		}
@@ -95,8 +127,8 @@ func (r *Repo) AddComponent(c *models.Component) error {
 	rows, err := r.store.db.Query(`
 	insert into components 
 	(code, "name", "checkpoint", unit, specs, photo, "type", weight) 
-	values ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, c.Code, c.Name, c.Checkpoint_id, c.Unit, c.Specs, c.Photo, c.Type_id, c.Weight)
+	values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`, c.Code, c.Name, c.Checkpoint_id, c.Unit, c.Specs, c.Photo, c.Type_id, c.Weight, c.InnerCode)
 	if err != nil {
 		return err
 	}

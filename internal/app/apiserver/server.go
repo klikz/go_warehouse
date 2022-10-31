@@ -47,6 +47,7 @@ func (s *Server) configureRouter() {
 	ware.Use(s.WareCheckRole())
 	{
 		ware.POST("/components", s.GetAllComponents)                          // {"token": string}
+		ware.POST("/components/outcome", s.GetAllComponentsOutCome)           // {"token": string}
 		ware.POST("/component", s.GetCompoment)                               // {"id": int, "token": string}
 		ware.POST("/component/update", s.UpdateCompoment)                     // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "id":int, "token": string}
 		ware.POST("/component/add", s.AddComponent)                           // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "token": string}

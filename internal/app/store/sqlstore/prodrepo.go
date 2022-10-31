@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 	"warehouse/internal/app/models"
 
@@ -91,26 +92,33 @@ func CheckLaboratory(serial string) (string, error) {
 	return string(body), nil
 }
 
-func PrintLocal(jsonStr []byte) error {
+func PrintLocal(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
+	defer wg.Done()
 	reprint := true
 	count := 0
+
 	for reprint {
 		if count > 3 {
-			return errors.New("qaytadan urinib ko'ring")
+			channel <- "qaytadan urinib ko'ring"
+			close(channel)
+			return
 		}
 		logrus.Info("Printing started")
-		logrus.Info("sending data: ", string(jsonStr))
-		url := "http://192.168.5.123/BarTender/api/v1/print"
+		url := "http://192.168.5.118/BarTender/api/v1/print" //for test
 		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 		if err != nil {
-			return err
+			channel <- err.Error()
+			close(channel)
+			return
 		}
 		req.Header.Set("X-Custom-Header", "myvalue")
 		req.Header.Set("Content-Type", "application/json")
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			return err
+			channel <- err.Error()
+			close(channel)
+			return
 		}
 		defer resp.Body.Close()
 
@@ -121,34 +129,42 @@ func PrintLocal(jsonStr []byte) error {
 
 		if strings.Contains(string(body), "BarTender успешно отправил задание") {
 			reprint = false
+			channel <- "ok"
+			close(channel)
+			logrus.Info("Printing end")
+			return
 		}
 		count++
 	}
-
-	logrus.Info("Printing end")
-	return nil
 }
 
-func PrintMetall(jsonStr []byte) error {
+func PrintMetall(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
+	defer wg.Done()
 	reprint := true
 	count := 0
+
 	for reprint {
 		if count > 3 {
-			return errors.New("qaytadan urinib ko'ring")
+			channel <- "qaytadan urinib ko'ring"
+			close(channel)
+			return
 		}
 		logrus.Info("Printing started")
-		logrus.Info("sending data: ", string(jsonStr))
-		url := "http://192.168.5.139/BarTender/api/v1/print"
+		url := "http://192.168.5.134/BarTender/api/v1/print" //for test
 		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 		if err != nil {
-			return err
+			channel <- err.Error()
+			close(channel)
+			return
 		}
 		req.Header.Set("X-Custom-Header", "myvalue")
 		req.Header.Set("Content-Type", "application/json")
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			return err
+			channel <- err.Error()
+			close(channel)
+			return
 		}
 		defer resp.Body.Close()
 
@@ -159,12 +175,13 @@ func PrintMetall(jsonStr []byte) error {
 
 		if strings.Contains(string(body), "BarTender успешно отправил задание") {
 			reprint = false
+			channel <- "ok"
+			close(channel)
+			logrus.Info("Printing end")
+			return
 		}
 		count++
 	}
-
-	logrus.Info("Printing end")
-	return nil
 }
 
 func (r *Repo) GetLast(line int) ([]models.Last, error) {
@@ -898,6 +915,29 @@ func (r *Repo) SerialInput(line int, serial string) error {
 			}
 			return errors.New("laboratoriyada muammo")
 		}
+	case 9:
+		// check production to serial
+		if err := r.store.db.QueryRow("select product_id from production p where serial = $1 and  checkpoint_id = $2", serial, line).Scan(&prod_id.id); err == nil {
+			if _, err := r.store.db.Exec("update production set updated = now() where product_id = $1", prod_id.id); err != nil {
+				return err
+			}
+			return errors.New("serial kiritilgan")
+		} else {
+			rows, err := r.store.db.Query("insert into production (model_id, serial, checkpoint_id) values ($1, $2, $3)", modelInfo.id, serial, line)
+
+			if err != nil {
+				logrus.Error("Case9 Serial Input: ", err)
+				return err
+			}
+			defer rows.Close()
+			err = r.debitFromLine(modelInfo.id, line)
+			if err != nil {
+				logrus.Error("Case9 debitFromLine: ", err)
+				return err
+			}
+			return nil
+		}
+
 	}
 
 	// check production to serial
@@ -963,54 +1003,77 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 	if err := r.store.db.QueryRow("select m.id, m.name from models m where m.code = $1", serialSlice).Scan(&modelId.id, &modelId.name); err != nil {
 		return errors.New("serial xato")
 	}
+	var wg sync.WaitGroup
+
+	if retry {
+		var check interface{}
+		if err := r.store.db.QueryRow(`select g."data" from gs g where model = $1`, modelId.id).Scan(&check); err != nil {
+			return err
+		}
+
+		GScodeWithError := ""
+		if err := r.store.db.QueryRow(`select g."data" from gs g where product = $1`, serial).Scan(&GScodeWithError); err != nil {
+			return err
+		}
+		code := strings.ReplaceAll(GScodeWithError, `"`, ``)
+
+		channel1 := make(chan string, 1)
+		// channel2 := make(chan string, 1)
+
+		wg.Add(1)
+
+		var data1 = []byte(fmt.Sprintf(`
+			{
+				"LibraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+				"AbsolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/%s_1.btw",
+				"PrintRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+				"Printer": "Gainscha GS-3405T",
+				"DataEntryControls": {
+						"GSCodeInput": "%v",
+						"SeriaInput": "%s"
+				}
+
+				}`, serialSlice, code, serial))
+		// var data2 = []byte(fmt.Sprintf(`
+		// {
+		// 	"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+		// 	"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/%s_22.btw",
+		// 	"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+		// 	"printer": "Xprinter XP-H500B",
+		// 	"DataEntryControls": {
+		// 		"SeriaInput": "%s"
+		// 	}
+		// }`, serialSlice, serial))
+
+		go PrintLocal(data1, channel1, &wg)
+		// go PrintLocal(data2, channel2, &wg)
+
+		wg.Wait()
+		errorText1 := <-channel1
+		// errorText2 := <-channel2
+
+		if errorText1 == "ok" {
+			return nil
+		} else {
+			logrus.Error("error in printing: " + errorText1)
+			return err
+		}
+
+		// if errorText1 == "ok" && errorText2 == "ok" {
+		// 	return errors.New("dublicate printed")
+		// } else {
+		// 	logrus.Error("error in printing: " + errorText1 + " " + errorText2)
+		// 	return errors.New("qaytadan urinib ko'ring")
+		// }
+
+	}
+	var check interface{}
+	if err := r.store.db.QueryRow(`select g."data" from gs g where model = $1`, modelId.id).Scan(&check); err != nil {
+		return err
+	}
 
 	rows, err := r.store.db.Query("insert into packing (serial, model_id) values ($1, $2)", serial, modelId.id)
 	if err != nil {
-		if retry {
-			errString := err.Error()
-			if strings.Contains(errString, "duplicate key") || strings.Contains(errString, "packing_un_serial") {
-				codeWithError := ""
-				if err := r.store.db.QueryRow(`select g."data" from gs g where product = $1`, serial).Scan(&codeWithError); err != nil {
-					return err
-				}
-				code := strings.ReplaceAll(codeWithError, `"`, ``)
-				var data1 = []byte(fmt.Sprintf(`
-				{
-					"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
-					"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s_1.btw",
-					"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
-					"printer": "Gainscha GS-3405T",
-					"startingPosition": 0,
-					"copies": 0,
-					"serialNumbers": 0,
-					"dataEntryControls": {
-							"GSCodeInput": "%v",
-							"SeriaInput": "%s"
-					}
-
-					}`, serialSlice, code, serial))
-				logrus.Info("serialSlice: ", serialSlice, "codeData.Data: ", code, "serial: ", serial)
-				// var data2 = []byte(fmt.Sprintf(`
-				// {
-				// 	"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
-				// 	"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s_2.btw",
-				// 	"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
-				// 	"printer": "Gainscha GS-3405T 2",
-				// 	"startingPosition": 0,
-				// 	"copies": 0,
-				// 	"serialNumbers": 0,
-				// 	"dataEntryControls": {
-				// 			"SeriaInput": "%s"
-				// 	}
-
-				// 	}`, serialSlice, serial))
-				PrintLocal(data1)
-				// PrintLocal(data2)
-
-				return errors.New("dublicate printed")
-			}
-		}
-		logrus.Info("ProdRepo: err, retry = false")
 		return err
 	}
 	defer rows.Close()
@@ -1026,41 +1089,56 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 	}
 	_, err = r.store.db.Exec(`update gs set product = $1, status = false where id = $2`, serial, codeData.ID)
 	if err != nil {
-		logrus.Info("update error: ", err)
 		return err
 	}
+
+	channel1 := make(chan string, 1)
+	// channel2 := make(chan string, 1)
+
 	var data1 = []byte(fmt.Sprintf(`
 			{
-				"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
-				"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s_1.btw",
-				"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
-				"printer": "Gainscha GS-3405T",
-				"startingPosition": 0,
-				"copies": 0,
-				"serialNumbers": 0,
-				"dataEntryControls": {
-						"GSCode": "%s",
+				"LibraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+				"AbsolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/%s_1.btw",
+				"PrintRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+				"Printer": "Gainscha GS-3405T",
+				"DataEntryControls": {
+						"GSCodeInput": "%s",
 						"SeriaInput": "%s"
 				}
 			}`, serialSlice, codeData.Data, serial))
 	// var data2 = []byte(fmt.Sprintf(`
-	// 		{
-	// 			"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
-	// 			"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premer/%s_2.btw",
-	// 			"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
-	// 			"printer": "Gainscha GS-3405T 2",
-	// 			"startingPosition": 0,
-	// 			"copies": 0,
-	// 			"serialNumbers": 0,
-	// 			"dataEntryControls": {
-	// 					"SeriaInput": "%s"
-	// 			}
+	// 	{
+	// 		"LibraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+	// 		"AbsolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/%s_2.btw",
+	// 		"PrintRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+	// 		"Printer": "Xprinter XP-H500B",
+	// 		"DataEntryControls": {
+	// 			"SeriaInput": "%s"
+	// 		}
+	// 	}`, serialSlice, serial))
 
-	// 			}`, serialSlice, serial))
-	PrintLocal(data1)
-	// PrintLocal(data2)
+	wg.Add(1)
 
-	return nil
+	go PrintLocal(data1, channel1, &wg)
+	// go PrintLocal(data2, channel2, &wg)
+
+	wg.Wait()
+	errorText1 := <-channel1
+	// errorText2 := <-channel2
+
+	if errorText1 == "ok" {
+		return nil
+	} else {
+		logrus.Error("error in printing: " + errorText1)
+		return errors.New("qaytadan urinib ko'ring")
+	}
+
+	// if errorText1 == "ok" && errorText2 == "ok" {
+	// 	return errors.New("dublicate printed")
+	// } else {
+	// 	logrus.Error("error in printing: " + errorText1 + errorText2)
+	// 	return errors.New("qaytadan urinib ko'ring")
+	// }
 }
 
 func (r *Repo) GetInfoBySerial(serial string) (interface{}, error) {
@@ -1217,7 +1295,6 @@ func (r *Repo) Metall_Serial(id int) error {
 	if err := r.store.db.QueryRow(`update metall_serial set "last" = "last" + 1 where model_id = $1 returning "last" `, id).Scan(&count); err != nil {
 		return err
 	}
-
 	countString := ""
 
 	switch {
@@ -1238,6 +1315,10 @@ func (r *Repo) Metall_Serial(id int) error {
 		countString = fmt.Sprintf(`%s%d`, info.Code, count)
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+	channel := make(chan string, 1)
+
 	data := []byte(fmt.Sprintf(`
 	{
 		"libraryID": "986278f7-755f-4412-940f-a89e893947de",
@@ -1253,7 +1334,25 @@ func (r *Repo) Metall_Serial(id int) error {
 				"SerialInput": "%s"
 		}
 	}`, info.Name, countString))
-	PrintMetall(data)
-	// logrus.Info(string(data))
+	PrintMetall(data, channel, &wg)
+
+	wg.Wait()
+	errorText1 := <-channel
+
+	if errorText1 == "ok" {
+		return nil
+	} else {
+		logrus.Error("error in printing: " + errorText1)
+		return errors.New("qaytadan urinib ko'ring")
+	}
+}
+
+func (r *Repo) SectorBalanceUpdate(line, component_id int, quantity float64) error {
+
+	_, err := r.store.db.Exec(fmt.Sprintf("update checkpoints.\"%d\" set quantity = %f where component_id = %d", line, quantity, component_id))
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

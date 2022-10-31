@@ -93,24 +93,24 @@ func (s *Server) GetSectorBalance(c *gin.Context) {
 }
 
 func (s *Server) SectorBalanceUpdate(c *gin.Context) {
-	// resp := models.Responce{}
-	// temp, _ := c.Get("line")
-	// temp2, _ := c.Get("component_id")
-	// temp3, _ := c.Get("quantity")
-	// line := temp.(int)
-	// quantity := temp2.(float64)
-	// component_id := temp3.(int)
+	resp := models.Responce{}
+	temp, _ := c.Get("line")
+	temp2, _ := c.Get("component_id")
+	temp3, _ := c.Get("quantity")
+	line := temp.(int)
+	quantity := temp3.(float64)
+	component_id := temp2.(int)
 
-	// err := s.Store.Repo().SectorBalanceUpdate(line, component_id, quantity)
-	// if err != nil {
-	// 	s.Logger.Error("GetSectorBalanceUpdate: ", err)
-	// 	resp.Result = "error"
-	// 	resp.Err = "Wrong Credentials"
-	// 	c.JSON(200, resp)
-	// 	return
-	// }
-	// resp.Result = "ok"
-	// c.JSON(200, resp)
+	err := s.Store.Repo().SectorBalanceUpdate(line, component_id, quantity)
+	if err != nil {
+		s.Logger.Error("GetSectorBalanceUpdate: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	resp.Result = "ok"
+	c.JSON(200, resp)
 }
 func (s *Server) GetPackingLast(c *gin.Context) {
 	resp := models.Responce{}
@@ -522,9 +522,9 @@ func (s *Server) GalileoTodayModels(c *gin.Context) {
 func (s *Server) MetallSerial(c *gin.Context) {
 
 	resp := models.Responce{}
-	temp, _ := c.Get("id")
+	id := c.GetInt("id")
 
-	id := temp.(int)
+	// id := temp.(int)
 
 	err := s.Store.Repo().Metall_Serial(id)
 	if err != nil {

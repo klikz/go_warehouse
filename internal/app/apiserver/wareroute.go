@@ -15,9 +15,23 @@ import (
 )
 
 func (s *Server) GetAllComponents(c *gin.Context) {
-	resp := models.Responce{}
+
 	data, err := s.Store.Repo().GetAllComponents()
 	if err != nil {
+		resp := models.Responce{}
+		s.Logger.Error("GetAllComponents: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	c.JSON(200, data)
+}
+func (s *Server) GetAllComponentsOutCome(c *gin.Context) {
+
+	data, err := s.Store.Repo().GetAllComponentsOutcome()
+	if err != nil {
+		resp := models.Responce{}
 		s.Logger.Error("GetAllComponents: ", err)
 		resp.Result = "error"
 		resp.Err = "Wrong Credentials"
@@ -29,11 +43,11 @@ func (s *Server) GetAllComponents(c *gin.Context) {
 
 func (s *Server) GetCompoment(c *gin.Context) {
 
-	resp := models.Responce{}
 	id := c.GetInt("id")
 
 	data, err := s.Store.Repo().GetComponent(id)
 	if err != nil {
+		resp := models.Responce{}
 		s.Logger.Error("GetComponent: ", err)
 		resp.Result = "error"
 		resp.Err = "Wrong Credentials"
@@ -60,6 +74,7 @@ func (s *Server) UpdateCompoment(c *gin.Context) {
 	component.Type = c.GetString("type")
 	component.Type_id = c.GetInt("type_id")
 	component.Weight = c.GetFloat64("weight")
+	component.InnerCode = c.GetString("inner_code")
 
 	if component.ID == 0 {
 		s.Logger.Error("GetComponent: ", "blank id")
@@ -94,6 +109,7 @@ func (s *Server) AddComponent(c *gin.Context) {
 	component.Photo = c.GetString("photo")
 	component.Type_id = c.GetInt("type_id")
 	component.Weight = c.GetFloat64("weight")
+	component.InnerCode = c.GetString("inner_code")
 	s.Logger.Info(component)
 	err := s.Store.Repo().AddComponent(&component)
 	if err != nil {
