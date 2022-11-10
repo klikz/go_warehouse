@@ -1,13 +1,11 @@
 package apiserver
 
 import (
-	"encoding/csv"
+	"bufio"
 	"encoding/json"
-	"io"
 	"io/ioutil"
 	"mime/multipart"
 	"os"
-	"strings"
 	"warehouse/internal/app/models"
 
 	"github.com/bingoohuang/xlsx"
@@ -504,7 +502,23 @@ func (s *Server) BomComponentDelete(c *gin.Context) {
 	c.JSON(200, resp)
 }
 
+func readLines(path string) ([]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	var lines []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	return lines, scanner.Err()
+}
+
 func (s *Server) GsCodeFile(c *gin.Context) {
+
+	s.Logger.Info("GS code file")
 	resp := models.Responce{}
 
 	type FileToken struct {
@@ -565,33 +579,53 @@ func (s *Server) GsCodeFile(c *gin.Context) {
 		return
 	}
 
-	file, err := os.Open("temp.csv")
+	stringArray, err := readLines("temp.csv")
 	if err != nil {
-		s.Logger.Error(err)
+		s.Logger.Error("string err: ", err)
 	}
 
-	reader := csv.NewReader(file)
-	reader.Comma = '@'
-	reader.LazyQuotes = true
-	for {
-		record, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			s.Logger.Error("csv decoding error: ", err)
-		}
-		res := strings.ReplaceAll(record[0], "", "")
-		if err := s.Store.Repo().InsertGsCode(res, data.Model); err != nil {
-			resp.Result = "error"
-			resp.Err = err
-			c.JSON(200, resp)
-			return
-		}
-		// s.Logger.Info(record[0])
+	s.Logger.Info("string array len: ", len(stringArray))
 
+	badCode, err := s.Store.Repo().InsertGsCode(stringArray, data.Model)
+
+	if err != nil {
+		for i := range badCode {
+			s.Logger.Error("error key: ", i)
+		}
+		resp.Result = "error"
+		resp.Data = badCode
+		c.JSON(200, resp)
+		return
 	}
-	defer file.Close()
+	s.Logger.Info("added keys: ", len(stringArray), " model: ", data.Model)
+
+	// file, err := os.Open("temp.csv")
+	// if err != nil {
+	// 	s.Logger.Error(err)
+	// }
+
+	// reader := csv.NewReader(file)
+	// reader.Comma = '@'
+	// reader.LazyQuotes = true
+	// for {
+	// 	record, err := reader.Read()
+	// 	if err == io.EOF {
+	// 		break
+	// 	}
+	// 	if err != nil {
+	// 		s.Logger.Error("csv decoding error: ", err)
+	// 	}
+	// res := strings.ReplaceAll(record[0], "", "")
+	// if err := s.Store.Repo().InsertGsCode(res, data.Model); err != nil {
+	// 	resp.Result = "error"
+	// 	resp.Err = err
+	// 	c.JSON(200, resp)
+	// 	return
+	// }
+	// 	// s.Logger.Info(record[0])
+
+	// }
+	// defer file.Close()
 	resp.Result = "ok"
 
 	c.JSON(200, resp)

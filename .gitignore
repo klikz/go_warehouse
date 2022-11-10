@@ -2,3 +2,5 @@ logger.log
 .vscode
 .gitignore
 *.exe
+temp.csv
+temp.json

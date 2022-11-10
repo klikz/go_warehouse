@@ -126,7 +126,7 @@ func (r *Repo) AddComponent(c *models.Component) error {
 
 	rows, err := r.store.db.Query(`
 	insert into components 
-	(code, "name", "checkpoint", unit, specs, photo, "type", weight) 
+	(code, "name", "checkpoint", unit, specs, photo, "type", weight, inner_code) 
 	values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`, c.Code, c.Name, c.Checkpoint_id, c.Unit, c.Specs, c.Photo, c.Type_id, c.Weight, c.InnerCode)
 	if err != nil {
@@ -706,13 +706,22 @@ func (r *Repo) FileInput(f []models.FileInput) ([]models.FileInput, error) {
 	return f, nil
 }
 
-func (r *Repo) InsertGsCode(gscode string, model int) error {
-	logrus.Info("key: ", gscode, " model: ", model)
-	_, err := r.store.db.Exec(`insert into gs ("data", model) values ($1, $2)`, gscode, model)
-	if err != nil {
-		return err
+func (r *Repo) InsertGsCode(gscode []string, model int) ([]string, error) {
+	// logrus.Info("key: ", gscode, " model: ", model)
+	var badCode []string
+	falseCode := false
+	for _, code := range gscode {
+		_, err := r.store.db.Exec(`insert into gs ("data", model) values ($1, $2)`, code, model)
+		if err != nil {
+			badCode = append(badCode, code)
+			falseCode = true
+		}
 	}
-	return nil
+	if falseCode {
+		return badCode, errors.New("code repeated")
+	}
+
+	return badCode, nil
 }
 
 func (r *Repo) GetKeys() (interface{}, error) {

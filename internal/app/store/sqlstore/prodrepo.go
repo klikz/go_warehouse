@@ -2,6 +2,7 @@ package sqlstore
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -46,6 +47,8 @@ func setPin(param, addres string) (interface{}, error) {
 		return nil, err
 	}
 	return string(body), nil
+
+	// return nil, nil
 }
 func (r *Repo) debitFromLine(modelId, lineId int) error {
 	type Debit struct {
@@ -90,6 +93,7 @@ func CheckLaboratory(serial string) (string, error) {
 		return "", err
 	}
 	return string(body), nil
+	// return "", nil
 }
 
 func PrintLocal(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
@@ -136,10 +140,13 @@ func PrintLocal(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
 		}
 		count++
 	}
+
+	// channel <- "ok"
 }
 
 func PrintMetall(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
 	defer wg.Done()
+
 	reprint := true
 	count := 0
 
@@ -150,7 +157,7 @@ func PrintMetall(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
 			return
 		}
 		logrus.Info("Printing started")
-		url := "http://192.168.5.134/BarTender/api/v1/print" //for test
+		url := "http://192.168.5.126/BarTender/api/v1/print"
 		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 		if err != nil {
 			channel <- err.Error()
@@ -182,6 +189,9 @@ func PrintMetall(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
 		}
 		count++
 	}
+
+	// channel <- "ok"
+	// logrus.Info("Printing: ", string(jsonStr))
 }
 
 func (r *Repo) GetLast(line int) ([]models.Last, error) {
@@ -921,6 +931,39 @@ func (r *Repo) SerialInput(line int, serial string) error {
 			if _, err := r.store.db.Exec("update production set updated = now() where product_id = $1", prod_id.id); err != nil {
 				return err
 			}
+			modelName := ""
+			if err := r.store.db.QueryRow(`select m."name"  from public.models m where code = $1`, serialSlice).Scan(&modelName); err != nil {
+				return err
+			}
+
+			var wg sync.WaitGroup
+			wg.Add(1)
+			channel := make(chan string, 1)
+
+			data := []byte(fmt.Sprintf(`
+		{
+			"libraryID": "986278f7-755f-4412-940f-a89e893947de",
+			"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/serial.btw",
+			"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+			"printer": "Gainscha GS-3405T",
+			"startingPosition": 0,
+			"copies": 0,
+			"serialNumbers": 0,
+			"dataEntryControls": {
+					"Printer": "Gainscha GS-3405T",
+					"ModelInput": "%s",
+					"SerialInput": "%s"
+			}
+		}`, modelName, serial))
+			PrintMetall(data, channel, &wg)
+
+			wg.Wait()
+			errorText1 := <-channel
+
+			if errorText1 != "ok" {
+				logrus.Error("error in printing: " + errorText1)
+				return errors.New("qaytadan urinib ko'ring")
+			}
 			return errors.New("serial kiritilgan")
 		} else {
 			rows, err := r.store.db.Query("insert into production (model_id, serial, checkpoint_id) values ($1, $2, $3)", modelInfo.id, serial, line)
@@ -950,6 +993,7 @@ func (r *Repo) SerialInput(line int, serial string) error {
 			return err
 		}
 		logrus.Info("from raspberry: ", req)
+
 		return errors.New("serial kiritilgan")
 	} else {
 		rows, err := r.store.db.Query("insert into production (model_id, serial, checkpoint_id) values ($1, $2, $3)", modelInfo.id, serial, line)
@@ -1011,11 +1055,12 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 			return err
 		}
 
-		GScodeWithError := ""
-		if err := r.store.db.QueryRow(`select g."data" from gs g where product = $1`, serial).Scan(&GScodeWithError); err != nil {
+		code := ""
+		if err := r.store.db.QueryRow(`select g."data" from gs g where product = $1`, serial).Scan(&code); err != nil {
 			return err
 		}
-		code := strings.ReplaceAll(GScodeWithError, `"`, ``)
+		code = strings.ReplaceAll(code, `"`, ``)
+		code = strings.ReplaceAll(code, "", "")
 
 		channel1 := make(chan string, 1)
 		// channel2 := make(chan string, 1)
@@ -1069,6 +1114,10 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 	}
 	var check interface{}
 	if err := r.store.db.QueryRow(`select g."data" from gs g where model = $1`, modelId.id).Scan(&check); err != nil {
+		logrus.Error("error check: ", err)
+		if err == sql.ErrNoRows {
+			return errors.New("GS kod tugagan yuklash kerak")
+		}
 		return err
 	}
 
@@ -1085,7 +1134,10 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 	codeData := GSCode{}
 
 	if err := r.store.db.QueryRow("select g.id, g.data from gs g where g.model = $1 and g.status = true", modelId.id).Scan(&codeData.ID, &codeData.Data); err != nil {
-		return errors.New("keys not found")
+		if err == sql.ErrNoRows {
+			return errors.New("keys not found")
+		}
+		return err
 	}
 	_, err = r.store.db.Exec(`update gs set product = $1, status = false where id = $2`, serial, codeData.ID)
 	if err != nil {
@@ -1094,6 +1146,8 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 
 	channel1 := make(chan string, 1)
 	// channel2 := make(chan string, 1)
+	codeData.Data = strings.ReplaceAll(codeData.Data, `"`, ``)
+	codeData.Data = strings.ReplaceAll(codeData.Data, "", "")
 
 	var data1 = []byte(fmt.Sprintf(`
 			{
@@ -1339,12 +1393,15 @@ func (r *Repo) Metall_Serial(id int) error {
 	wg.Wait()
 	errorText1 := <-channel
 
-	if errorText1 == "ok" {
-		return nil
-	} else {
+	if errorText1 != "ok" {
 		logrus.Error("error in printing: " + errorText1)
 		return errors.New("qaytadan urinib ko'ring")
 	}
+
+	if err := r.SerialInput(9, countString); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *Repo) SectorBalanceUpdate(line, component_id int, quantity float64) error {
