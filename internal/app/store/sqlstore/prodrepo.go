@@ -747,7 +747,7 @@ func (r *Repo) GetRemont() (interface{}, error) {
 	}
 
 	rows, err := r.store.db.Query(`
-	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY HH24-MM') vaqt, r.person_id, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo 
+	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY HH24-MI') vaqt, r.person_id, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo 
 	from remont r, checkpoints c, models m, defects d 
 	where r.status = 1 and d.id = r.defect_id and c.id = r.checkpoint_id and m.id = r.model_id order by r."input"
 	 `)
@@ -794,7 +794,7 @@ func (r *Repo) GetRemontToday() (interface{}, error) {
 	currentTime := time.Now()
 
 	rows, err := r.store.db.Query(`
-	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY HH24:MM') vaqt, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo 
+	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY HH24:MI') vaqt, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo 
 	from remont r, checkpoints c, models m, defects d 
 	where r.status = 1 and d.id = r.defect_id and c.id = r.checkpoint_id and m.id = r.model_id and r.input::date=to_date($1, 'YYYY-MM-DD')  order by r."input"
 	 `, currentTime)
@@ -848,7 +848,7 @@ func (r *Repo) GetRemontByDate(date1, date2 string) (interface{}, error) {
 	}
 
 	rows, err := r.store.db.Query(`
-	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY  HH24:MM') vaqt, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo, r.status
+	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY  HH24:MI') vaqt, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo, r.status
 	 from remont r, checkpoints c, models m, defects d 
 	where d.id = r.defect_id 
 	and c.id = r.checkpoint_id 
