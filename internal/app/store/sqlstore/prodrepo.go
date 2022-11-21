@@ -80,6 +80,7 @@ func (r *Repo) debitFromLine(modelId, lineId int) error {
 	return nil
 }
 func CheckLaboratory(serial string) (string, error) {
+	logrus.Info("Check laboratory")
 	response, err := http.PostForm("http://192.168.5.250:3002/labinfo", url.Values{
 		"serial": {serial}})
 	if err != nil {
@@ -97,6 +98,7 @@ func CheckLaboratory(serial string) (string, error) {
 }
 
 func PrintLocal(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
+	logrus.Info("Print local")
 	defer wg.Done()
 	reprint := true
 	count := 0
@@ -530,6 +532,41 @@ func (r *Repo) AddDefects(serial, name, photo string, checkpoint, defect int) er
 	return nil
 }
 
+func (r *Repo) Last3Defects() (interface{}, error) {
+	type Last struct {
+		Serial     string `json:"serial"`
+		Time       string `json:"time"`
+		Checkpoint string `json:"checkpoint"`
+		DefectName string `json:"defect_name"`
+	}
+
+	rows, err := r.store.db.Query(`select r.serial, to_char(r."input", 'DD-MM-YYYY HH24:MI') as time, c."name" as checkpoint, d.defect_name 
+	from remont r, checkpoints c, defects d  
+	where r.status = '1' and c.id = r.checkpoint_id and d.id = r.defect_id 
+	order by "input"  DESC limit 3`)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+	last := []Last{}
+	for rows.Next() {
+		comp := Last{}
+
+		if err := rows.Scan(&comp.Serial, &comp.Time, &comp.Checkpoint, &comp.DefectName); err != nil {
+			return nil, err
+		}
+		last = append(last, comp)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return last, nil
+}
+
 func (r *Repo) GetByDateSerial(date1, date2 string) (interface{}, error) {
 	type Serial struct {
 		Serial string `json:"serial"`
@@ -710,7 +747,7 @@ func (r *Repo) GetRemont() (interface{}, error) {
 	}
 
 	rows, err := r.store.db.Query(`
-	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY') vaqt, r.person_id, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo 
+	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY HH24-MM') vaqt, r.person_id, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo 
 	from remont r, checkpoints c, models m, defects d 
 	where r.status = 1 and d.id = r.defect_id and c.id = r.checkpoint_id and m.id = r.model_id order by r."input"
 	 `)
@@ -757,7 +794,7 @@ func (r *Repo) GetRemontToday() (interface{}, error) {
 	currentTime := time.Now()
 
 	rows, err := r.store.db.Query(`
-	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY') vaqt, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo 
+	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY HH24:MM') vaqt, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo 
 	from remont r, checkpoints c, models m, defects d 
 	where r.status = 1 and d.id = r.defect_id and c.id = r.checkpoint_id and m.id = r.model_id and r.input::date=to_date($1, 'YYYY-MM-DD')  order by r."input"
 	 `, currentTime)
@@ -788,6 +825,15 @@ func (r *Repo) GetRemontToday() (interface{}, error) {
 	return list, nil
 }
 
+func (r *Repo) GetCountRepaired() (int, error) {
+	count := 0
+
+	if err := r.store.db.QueryRow(`select count(*) from remont r where r.status = '0' and r."output" >= current_date`).Scan(&count); err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
 func (r *Repo) GetRemontByDate(date1, date2 string) (interface{}, error) {
 
 	type Remont struct {
@@ -798,13 +844,13 @@ func (r *Repo) GetRemontByDate(date1, date2 string) (interface{}, error) {
 		Model      string `json:"model"`
 		Defect     string `json:"defect"`
 		Photo      string `json:"photo"`
+		Status     string `json:"status"`
 	}
 
 	rows, err := r.store.db.Query(`
-	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY') vaqt, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo
+	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY  HH24:MM') vaqt, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo, r.status
 	 from remont r, checkpoints c, models m, defects d 
-	where r.status = 1 
-	and d.id = r.defect_id 
+	where d.id = r.defect_id 
 	and c.id = r.checkpoint_id 
 	and m.id = r.model_id 
 	and r."input"::date>=to_date($1, 'YYYY-MM-DD') 
@@ -827,13 +873,22 @@ func (r *Repo) GetRemontByDate(date1, date2 string) (interface{}, error) {
 			&comp.Checkpoint,
 			&comp.Model,
 			&comp.Defect,
-			&comp.Photo); err != nil {
+			&comp.Photo,
+			&comp.Status); err != nil {
 			return nil, err
 		}
 		list = append(list, comp)
 	}
 	if err = rows.Err(); err != nil {
 		return list, err
+	}
+
+	for i := 0; i < len(list); i++ {
+		if list[i].Status == "1" {
+			list[i].Status = "defected"
+		} else {
+			list[i].Status = "repaired"
+		}
 	}
 
 	return list, nil
@@ -1025,7 +1080,7 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 		Model     string `json:"model"`
 		Result    string `json:"result"`
 	}
-
+	logrus.Info("PackingSerialInput started")
 	res, err := CheckLaboratory(serial)
 	if err != nil {
 		return errors.New("check laboratory err")
@@ -1034,6 +1089,7 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 	s := string(res)
 	data := Laboratory{}
 	json.Unmarshal([]byte(s), &data)
+	logrus.Info("data from lab: ", data)
 	if data.Result == "No data" {
 		return errors.New("laboratoriyada muammo")
 	}
@@ -1043,10 +1099,11 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 	}
 	var modelId ModelId
 	var serialSlice = serial[0:6]
-
+	logrus.Info("Get id and name")
 	if err := r.store.db.QueryRow("select m.id, m.name from models m where m.code = $1", serialSlice).Scan(&modelId.id, &modelId.name); err != nil {
 		return errors.New("serial xato")
 	}
+
 	var wg sync.WaitGroup
 
 	if retry {
@@ -1063,9 +1120,9 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 		code = strings.ReplaceAll(code, "", "")
 
 		channel1 := make(chan string, 1)
-		// channel2 := make(chan string, 1)
+		channel2 := make(chan string, 1)
 
-		wg.Add(1)
+		wg.Add(2)
 
 		var data1 = []byte(fmt.Sprintf(`
 			{
@@ -1079,39 +1136,40 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 				}
 
 				}`, serialSlice, code, serial))
-		// var data2 = []byte(fmt.Sprintf(`
-		// {
-		// 	"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
-		// 	"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/%s_22.btw",
-		// 	"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
-		// 	"printer": "Xprinter XP-H500B",
-		// 	"DataEntryControls": {
-		// 		"SeriaInput": "%s"
-		// 	}
-		// }`, serialSlice, serial))
+		var data2 = []byte(fmt.Sprintf(`
+		{
+			"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+			"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/%s_22.btw",
+			"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+			"printer": "Xprinter XP-H500B",
+			"DataEntryControls": {
+				"SeriaInput": "%s"
+			}
+		}`, serialSlice, serial))
 
 		go PrintLocal(data1, channel1, &wg)
-		// go PrintLocal(data2, channel2, &wg)
+		go PrintLocal(data2, channel2, &wg)
 
 		wg.Wait()
 		errorText1 := <-channel1
-		// errorText2 := <-channel2
+		errorText2 := <-channel2
 
-		if errorText1 == "ok" {
-			return nil
-		} else {
-			logrus.Error("error in printing: " + errorText1)
-			return err
-		}
-
-		// if errorText1 == "ok" && errorText2 == "ok" {
-		// 	return errors.New("dublicate printed")
+		// if errorText1 == "ok" {
+		// 	return nil
 		// } else {
-		// 	logrus.Error("error in printing: " + errorText1 + " " + errorText2)
-		// 	return errors.New("qaytadan urinib ko'ring")
+		// 	logrus.Error("error in printing: " + errorText1)
+		// 	return err
 		// }
 
+		if errorText1 == "ok" && errorText2 == "ok" {
+			return errors.New("dublicate printed")
+		} else {
+			logrus.Error("error in printing: " + errorText1 + " " + errorText2)
+			return errors.New("qaytadan urinib ko'ring")
+		}
+
 	}
+	logrus.Info("check gs code")
 	var check interface{}
 	if err := r.store.db.QueryRow(`select g."data" from gs g where model = $1`, modelId.id).Scan(&check); err != nil {
 		logrus.Error("error check: ", err)
@@ -1120,7 +1178,7 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 		}
 		return err
 	}
-
+	logrus.Info("insert serial to db packing")
 	rows, err := r.store.db.Query("insert into packing (serial, model_id) values ($1, $2)", serial, modelId.id)
 	if err != nil {
 		return err
@@ -1132,23 +1190,24 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 		Data string
 	}
 	codeData := GSCode{}
-
+	logrus.Info("Get GS code")
 	if err := r.store.db.QueryRow("select g.id, g.data from gs g where g.model = $1 and g.status = true", modelId.id).Scan(&codeData.ID, &codeData.Data); err != nil {
 		if err == sql.ErrNoRows {
 			return errors.New("keys not found")
 		}
 		return err
 	}
+	logrus.Info("Update gs code")
 	_, err = r.store.db.Exec(`update gs set product = $1, status = false where id = $2`, serial, codeData.ID)
 	if err != nil {
 		return err
 	}
 
 	channel1 := make(chan string, 1)
-	// channel2 := make(chan string, 1)
+	channel2 := make(chan string, 1)
 	codeData.Data = strings.ReplaceAll(codeData.Data, `"`, ``)
 	codeData.Data = strings.ReplaceAll(codeData.Data, "", "")
-
+	logrus.Info("Print data")
 	var data1 = []byte(fmt.Sprintf(`
 			{
 				"LibraryID": "2de725d4-1952-418e-81cc-450baa035a34",
@@ -1160,39 +1219,39 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 						"SeriaInput": "%s"
 				}
 			}`, serialSlice, codeData.Data, serial))
-	// var data2 = []byte(fmt.Sprintf(`
-	// 	{
-	// 		"LibraryID": "2de725d4-1952-418e-81cc-450baa035a34",
-	// 		"AbsolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/%s_2.btw",
-	// 		"PrintRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
-	// 		"Printer": "Xprinter XP-H500B",
-	// 		"DataEntryControls": {
-	// 			"SeriaInput": "%s"
-	// 		}
-	// 	}`, serialSlice, serial))
+	var data2 = []byte(fmt.Sprintf(`
+		{
+			"LibraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+			"AbsolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/%s_2.btw",
+			"PrintRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+			"Printer": "Xprinter XP-H500B",
+			"DataEntryControls": {
+				"SeriaInput": "%s"
+			}
+		}`, serialSlice, serial))
 
-	wg.Add(1)
+	wg.Add(2)
 
 	go PrintLocal(data1, channel1, &wg)
-	// go PrintLocal(data2, channel2, &wg)
+	go PrintLocal(data2, channel2, &wg)
 
 	wg.Wait()
 	errorText1 := <-channel1
-	// errorText2 := <-channel2
+	errorText2 := <-channel2
 
-	if errorText1 == "ok" {
-		return nil
-	} else {
-		logrus.Error("error in printing: " + errorText1)
-		return errors.New("qaytadan urinib ko'ring")
-	}
-
-	// if errorText1 == "ok" && errorText2 == "ok" {
-	// 	return errors.New("dublicate printed")
+	// if errorText1 == "ok" {
+	// 	return nil
 	// } else {
-	// 	logrus.Error("error in printing: " + errorText1 + errorText2)
+	// 	logrus.Error("error in printing: " + errorText1)
 	// 	return errors.New("qaytadan urinib ko'ring")
 	// }
+
+	if errorText1 == "ok" && errorText2 == "ok" {
+		return errors.New("dublicate printed")
+	} else {
+		logrus.Error("error in printing: " + errorText1 + errorText2)
+		return errors.New("qaytadan urinib ko'ring")
+	}
 }
 
 func (r *Repo) GetInfoBySerial(serial string) (interface{}, error) {
@@ -1276,15 +1335,15 @@ func (r *Repo) GalileoInput(g *models.Galileo) error {
 	}
 	var modelInfo InputInfo
 
-	var serialSlice = g.Barcode[0:6]
+	var serialSlice = g.Serial[0:6]
 
-	if g.Quantity != "0" {
+	if g.RealQuantity != 0 {
 
 		if err := r.store.db.QueryRow("select m.id from models m where m.code = $1", serialSlice).Scan(&modelInfo.id); err != nil {
 			return err
 		}
 
-		rows, err := r.store.db.Query("insert into galileo (serial, opcode, \"type\", progquantity, quantity, cycletotaltime, model_id, \"time\", \"result\") values ($1, $2, $3, $4, $5, $6, $7, $8, $9)", g.Barcode, g.OpCode, g.TypeFreon, g.ProgQuantity, g.Quantity, g.CycleTotalTime, modelInfo.id, g.Time, g.Result)
+		rows, err := r.store.db.Query("insert into galileo (serial, opcode, type_freon, program_quantity, real_quantity, pre_vacuum, model_id, contur_pressure, \"vacuum\", poisk_utechek, ref_pressure, ref_temp, galileo_time) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)", g.Serial, g.OpCode, g.TypeFreon, g.ProgramQuantity, g.RealQuantity, g.PreVacuum, modelInfo.id, g.ConturPressure, g.Vacuum, g.PoiskUtechek, g.RefPressure, g.RefTemp, g.Time)
 		if err != nil {
 			return err
 		}

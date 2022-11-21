@@ -17,4 +17,5 @@ type Request struct {
 	Packing           string `json:"packing"`
 	Image             string `json:"image"`
 	Retry             bool   `json:"retry"`
+	Data              string `json:"data"`
 }

@@ -91,6 +91,7 @@ func (s *Server) NoCheckRole() gin.HandlerFunc {
 		c.Set("checkpoint", req.Checkpoint)
 		c.Set("packing", req.Packing)
 		c.Set("retry", req.Retry)
+		c.Set("data", req.Data)
 
 	}
 }

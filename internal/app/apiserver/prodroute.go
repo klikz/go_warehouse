@@ -257,7 +257,8 @@ func (s *Server) AddDefects(c *gin.Context) {
 
 	//Encode from image format to writer
 	fileName := uuid.New().String() + ".jpg"
-	pngFilename := "D:\\premier\\v2\\Global\\media\\" + fileName
+	pngFilename := `g:\premier\server_V2\global\media\` + fileName
+	// pngFilename := `D:\premier\v2\Global\media\` + fileName
 	f, err := os.OpenFile(pngFilename, os.O_WRONLY|os.O_CREATE, 0777)
 
 	if err != nil {
@@ -291,6 +292,22 @@ func (s *Server) AddDefects(c *gin.Context) {
 	c.JSON(200, resp)
 }
 
+func (s *Server) Last3Defects(c *gin.Context) {
+	resp := models.Responce{}
+
+	data, err := s.Store.Repo().Last3Defects()
+	if err != nil {
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+	}
+
+	resp.Result = "ok"
+	resp.Data = data
+
+	c.JSON(200, resp)
+}
+
 func (s *Server) GetByDateSerial(c *gin.Context) {
 	resp := models.Responce{}
 	temp, _ := c.Get("date1")
@@ -311,12 +328,9 @@ func (s *Server) GetByDateSerial(c *gin.Context) {
 
 func (s *Server) GetCountByDate(c *gin.Context) {
 	resp := models.Responce{}
-	temp, _ := c.Get("date1")
-	temp2, _ := c.Get("date2")
-	temp3, _ := c.Get("line")
-	date1 := temp.(string)
-	date2 := temp2.(string)
-	line := temp3.(int)
+	date1 := c.GetString("date1")
+	date2 := c.GetString("date2")
+	line := c.GetInt("line")
 
 	data, err := s.Store.Repo().GetCountByDate(date1, date2, line)
 	if err != nil {
@@ -362,6 +376,22 @@ func (s *Server) GetRemont(c *gin.Context) {
 	c.JSON(200, data)
 }
 
+func (s *Server) GetRepairedCount(c *gin.Context) {
+	resp := models.Responce{}
+
+	count, err := s.Store.Repo().GetCountRepaired()
+	if err != nil {
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+	resp.Result = "ok"
+	resp.Data = count
+	c.JSON(200, resp)
+
+}
+
 func (s *Server) GetRemontToday(c *gin.Context) {
 	resp := models.Responce{}
 	data, err := s.Store.Repo().GetRemontToday()
@@ -377,10 +407,8 @@ func (s *Server) GetRemontToday(c *gin.Context) {
 
 func (s *Server) GetRemontByDate(c *gin.Context) {
 	resp := models.Responce{}
-	temp, _ := c.Get("date1")
-	temp2, _ := c.Get("date2")
-	date1 := temp.(string)
-	date2 := temp2.(string)
+	date1 := c.GetString("date1")
+	date2 := c.GetString("date2")
 
 	data, err := s.Store.Repo().GetRemontByDate(date1, date2)
 	if err != nil {
@@ -390,6 +418,7 @@ func (s *Server) GetRemontByDate(c *gin.Context) {
 		c.JSON(200, resp)
 		return
 	}
+
 	c.JSON(200, data)
 }
 
@@ -538,3 +567,60 @@ func (s *Server) MetallSerial(c *gin.Context) {
 	resp.Result = "ok"
 	c.JSON(200, resp)
 }
+
+// func Float64frombytes(bytes []byte) float32 {
+// 	bits := binary.LittleEndian.Uint32(bytes)
+// 	float := math.Float32frombits(bits)
+// 	return float
+// }
+
+// func (s *Server) GalileoTCP(c *gin.Context) {
+// 	resp := models.Responce{}
+// 	data := c.GetString("data")
+
+// 	s.Logger.Info("data: ", data)
+
+// 	message := []byte(data)
+
+// 	s.Logger.Info("message: ", message)
+
+// 	fmt.Print("Message type:", reflect.TypeOf(message))
+// 	fmt.Println("mesasge: ", message)
+// 	fmt.Println("mesasge String: ", string(message))
+// 	if len(message) > 100 {
+// 		serial := string(message[14:40])
+// 		opCode := string(message[85:89])
+// 		month := int(message[55])
+// 		day := int(message[57])
+// 		hour := int(message[59])
+// 		minute := int(message[61])
+// 		programQuantity := Float64frombytes(message[119 : 119+9])
+// 		realQuantity := Float64frombytes(message[123 : 123+9])
+
+// 		fmt.Println("serial: ", serial)
+// 		fmt.Println("opCode: ", opCode)
+// 		fmt.Println("month: ", month)
+// 		fmt.Println("day: ", day)
+// 		fmt.Println("hour: ", hour)
+// 		fmt.Println("minute: ", minute)
+// 		fmt.Println("programQuantity: ", programQuantity)
+// 		fmt.Println("realQuantity: ", realQuantity)
+
+// 		for i := 0; i < len(message)-10; i++ {
+
+// 			temp := Float64frombytes(message[i : i+9])
+// 			fmt.Println(i, ": ", temp)
+// 			// buf := bytes.NewBuffer(message[i:])
+// 			// tt, _ := binary.ReadUvarint(buf)
+
+// 			// // tt := uint32(message[i+2])
+// 			// fmt.Println(i, ": ", tt)
+
+// 		}
+
+// 	}
+
+// 	resp.Result = "ok"
+
+// 	c.JSON(200, resp)
+// }
