@@ -5,7 +5,6 @@ import (
 	"os"
 	"warehouse/internal/app/store/sqlstore"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
@@ -30,7 +29,7 @@ func newServer(store sqlstore.Store) *Server {
 	}
 	wrt := io.MultiWriter(os.Stdout, f)
 
-	s.Router.Use(cors.Default())
+	// s.Router.Use(cors.Default())
 
 	s.Logger.SetOutput(wrt)
 	s.Logger.SetFormatter(&log.JSONFormatter{})
@@ -39,6 +38,8 @@ func newServer(store sqlstore.Store) *Server {
 }
 
 func (s *Server) configureRouter() {
+	s.Router.SetTrustedProxies([]string{"localhost"})
+
 	s.Router.POST("users/login", s.Login)             // {"email": string, "password": string}
 	s.Router.POST("ware/outcome/file", s.OutcomeFile) //only excel file input
 	s.Router.POST("ware/gscode/file", s.GsCodeFile)
@@ -71,8 +72,9 @@ func (s *Server) configureRouter() {
 		ware.POST("/bom/component/add", s.BomComponentAdd)                    // {"id":int, "token": string}
 		ware.POST("/bom/component/delete", s.BomComponentDelete)              // {"model_id":int, "component_id":int, "token": string}
 		ware.POST("/production/sector/balance", s.GetSectorBalance)           // {"line":int, "token": string}
-		ware.POST("/production/sector/balance/update", s.SectorBalanceUpdate) // {"line":int, "token": string}
-		ware.POST("/gscode/get", s.GetKeys)                                   //{"token": string}
+		ware.POST("/production/sector/balance/update", s.SectorBalanceUpdate) // {"line":int, "component_id": int, "quantity": float64, "token": string}
+		ware.POST("/gscode/get", s.GetKeys)                                   // {"token": string}
+		ware.POST("/akt/input", s.AktInput)                                   // {"token": string, "component_id": int, "data": string, "quantity": float64, "checkpoint_id": int} data => comment
 	}
 
 	global := s.Router.Group("/api") //Route for global use

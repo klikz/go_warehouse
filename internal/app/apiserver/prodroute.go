@@ -499,13 +499,17 @@ func (s *Server) GetInfoBySerial(c *gin.Context) {
 
 	data, err := s.Store.Repo().GetInfoBySerial(serial)
 	if err != nil {
-		s.Logger.Error("SerialInput: ", err)
+		s.Logger.Error("GetInfoBySerial: ", err)
 		resp.Result = "error"
 		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
-	c.JSON(200, data)
+	resp.Result = "ok"
+
+	resp.Data = data
+
+	c.JSON(200, resp)
 }
 
 func (s *Server) GalileoInput(c *gin.Context) {
@@ -514,7 +518,7 @@ func (s *Server) GalileoInput(c *gin.Context) {
 	resp := models.Responce{}
 
 	if err := c.ShouldBind(&req); err != nil {
-		s.Logger.Error("Error Pasing body in NoCheckRole(): ", err)
+		s.Logger.Error("GalileoInput parse error: ", err)
 		resp.Result = "error"
 		resp.Err = err
 		c.JSON(401, resp)

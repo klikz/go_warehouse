@@ -18,4 +18,5 @@ type Request struct {
 	Image             string `json:"image"`
 	Retry             bool   `json:"retry"`
 	Data              string `json:"data"`
+	UserName          string
 }

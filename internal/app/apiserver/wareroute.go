@@ -12,6 +12,43 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func (s *Server) AktInput(c *gin.Context) {
+
+	account := models.Akt{}
+	resp := models.Responce{}
+
+	account.Component_id = c.GetInt("component_id")
+	account.UserName = c.GetString("username")
+	account.Comment = c.GetString("comment")
+	account.Quantity = c.GetFloat64("quantity")
+	account.Checkpoint_id = c.GetInt("checkpoint_id")
+
+	err := s.Store.Repo().AktInput(account)
+
+	if err != nil {
+		s.Logger.Error("AktInput: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		c.Abort()
+		return
+	}
+
+	s.Logger.Info("user: ", account.UserName, " update sector: ", account.Checkpoint_id, account.Component_id, account.Quantity)
+
+	if err := s.Store.Repo().SectorBalanceUpdate(account.Checkpoint_id, account.Component_id, account.Quantity); err != nil {
+		s.Logger.Error("AktInput SectorBalanceUpdate: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		c.Abort()
+		return
+	}
+
+	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
 func (s *Server) GetAllComponents(c *gin.Context) {
 
 	data, err := s.Store.Repo().GetAllComponents()

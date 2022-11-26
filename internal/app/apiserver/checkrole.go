@@ -161,6 +161,7 @@ func (s *Server) WareCheckRole() gin.HandlerFunc {
 		c.Set("retry", req.Retry)
 		c.Set("line", req.Line)
 		c.Set("inner_code", req.InnerCode)
+		c.Set("username", parsedToken.Email)
 
 	}
 }

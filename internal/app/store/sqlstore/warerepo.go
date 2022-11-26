@@ -1,12 +1,35 @@
 package sqlstore
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"warehouse/internal/app/models"
 
 	"github.com/sirupsen/logrus"
 )
+
+func (r *Repo) AktInput(account models.Akt) error {
+	if err := r.store.db.QueryRow(`select u.id  from users u where u.email = $1`, account.UserName).Scan(&account.UserID); err != nil {
+		if err == sql.ErrNoRows {
+			return errors.New("sql.ErrNoRows")
+		}
+		return err
+	}
+
+	fmt.Println("account: ", account)
+	result, err := r.store.db.Exec(`insert into akt (component_id, user_id, "comment", quantity) values ($1, $2, $3, $4)`, &account.Component_id, &account.UserID, &account.Comment, &account.Quantity)
+	if err != nil {
+		logrus.Info("err: ", err)
+		return err
+	}
+	rowsAffected, _ := result.RowsAffected()
+
+	if rowsAffected > 0 {
+		return nil
+	}
+	return errors.New("server error")
+}
 
 func (r *Repo) GetAllComponentsOutcome() (interface{}, error) {
 	rows, err := r.store.db.Query(`

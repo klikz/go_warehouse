@@ -301,7 +301,7 @@ func (r *Repo) GetSectorBalance(line int) (interface{}, error) {
 		Name         string  `json:"name"`
 	}
 
-	rows, err := r.store.db.Query(fmt.Sprintf(`select t.component_id, c.code,  t.quantity, c."name" from checkpoints."%d" t, components c where t.component_id = c.id ORDER BY t.quantity`, line))
+	rows, err := r.store.db.Query(fmt.Sprintf(`select t.component_id, c.code,  t.quantity, c."name" from checkpoints."%d" t, components c where t.component_id = c.id ORDER BY c."name"`, line))
 	if err != nil {
 		return nil, err
 	}
@@ -848,14 +848,14 @@ func (r *Repo) GetRemontByDate(date1, date2 string) (interface{}, error) {
 	}
 
 	rows, err := r.store.db.Query(`
-	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY  HH24:MI') vaqt, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo, r.status
+	select r.id, r.serial, to_char(r."input", 'DD-MM-YYYY HH24:MI') vaqt, c."name" as checkpoint, m."name" as model, d.defect_name as defect, r.photo, r.status
 	 from remont r, checkpoints c, models m, defects d 
 	where d.id = r.defect_id 
 	and c.id = r.checkpoint_id 
 	and m.id = r.model_id 
 	and r."input"::date>=to_date($1, 'YYYY-MM-DD') 
 	and r."input"::date<=to_date($2, 'YYYY-MM-DD')  
-	order by r."input"
+	order by  r.status, r."input"
 	 `, date1, date2)
 	if err != nil {
 		fmt.Println("GetRemont err: ", err)
@@ -1138,10 +1138,10 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 				}`, serialSlice, code, serial))
 		var data2 = []byte(fmt.Sprintf(`
 		{
-			"libraryID": "2de725d4-1952-418e-81cc-450baa035a34",
-			"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/%s_22.btw",
-			"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
-			"printer": "Xprinter XP-H500B",
+			"LibraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+			"AbsolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/%s_2.btw",
+			"PrintRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+			"Printer": "Xprinter XP-H500B",
 			"DataEntryControls": {
 				"SeriaInput": "%s"
 			}
@@ -1264,12 +1264,15 @@ func (r *Repo) GetInfoBySerial(serial string) (interface{}, error) {
 		Checkpoint string `json:"checkpoint"`
 		Time       string `json:"time"`
 	}
+
 	type Info struct {
 		PackingInfo    []Packing
 		ProductionInfo []Production
+		GalileoInfo    models.Galileo
 	}
 
 	var packing []Packing
+	var galileo models.Galileo
 
 	rows1, err := r.store.db.Query(`
 	select p.serial as ref_serial, p.packing as packing_serial, to_char(p."time" , 'DD-MM-YYYY HH24:MI') "time" from packing p
@@ -1281,13 +1284,31 @@ func (r *Repo) GetInfoBySerial(serial string) (interface{}, error) {
 	for rows1.Next() {
 		var comp Packing
 		if err := rows1.Scan(&comp.Ref_serial, &comp.Packing_serial, &comp.Packing_time); err != nil {
-			return packing, errors.New("no data")
+			if err == sql.ErrNoRows {
+				logrus.Error("NO ROWS")
+				return nil, errors.New("no data")
+			}
+			return nil, err
 		}
 		packing = append(packing, comp)
 	}
 	if err = rows1.Err(); err != nil {
 		return nil, errors.New("no data")
 	}
+
+	r.store.db.QueryRow(`
+	select g.serial, g.opcode, g.type_freon,  
+	round(g.program_quantity, 2) as program_quantity,
+	round(g.real_quantity, 2) as real_quantity,
+	round(g.contur_pressure, 2) as contur_pressure, 
+	round(g.pre_vacuum, 2) as pre_vacuum,
+	round(g."vacuum", 2) as "vacuum", 
+	round(g.poisk_utechek, 2) as poisk_utechek, 
+	round(g.ref_pressure, 2) as ref_pressure, 
+	round(g.ref_temp, 2) as ref_pressure,
+	to_char(g."time", 'YYYY-MM-DD HH24:MI') as vaqt  
+	from galileo g where g.serial = $1
+	`, serial).Scan(&galileo.Serial, &galileo.OpCode, &galileo.TypeFreon, &galileo.ProgramQuantity, &galileo.RealQuantity, &galileo.ConturPressure, &galileo.PreVacuum, &galileo.Vacuum, &galileo.PoiskUtechek, &galileo.RefPressure, &galileo.RefTemp, &galileo.Time)
 
 	// err := r.store.db.QueryRow(fmt.Sprintf(`
 	// select p.serial as ref_serial, p.packing as packing_serial, to_char(p."time" , 'DD-MM-YYYY HH24:MI') "time" from packing p
@@ -1307,7 +1328,12 @@ func (r *Repo) GetInfoBySerial(serial string) (interface{}, error) {
 	where g.serial = $2
 	and g.checkpoint_id = c.id`, serial, serial)
 	if err != nil {
-		return nil, errors.New("no data")
+		if err == sql.ErrNoRows {
+			fmt.Println("no rows")
+			return nil, errors.New("no data")
+		}
+		fmt.Println("no rows")
+		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -1320,10 +1346,14 @@ func (r *Repo) GetInfoBySerial(serial string) (interface{}, error) {
 	if err = rows.Err(); err != nil {
 		return nil, errors.New("no data")
 	}
-
 	var productInfo Info
 	productInfo.PackingInfo = packing
 	productInfo.ProductionInfo = production
+	productInfo.GalileoInfo = galileo
+
+	// if productInfo.GalileoInfo.Serial == "" {
+	// 	return nil, errors.New("no data")
+	// }
 
 	return productInfo, nil
 }
@@ -1465,10 +1495,15 @@ func (r *Repo) Metall_Serial(id int) error {
 
 func (r *Repo) SectorBalanceUpdate(line, component_id int, quantity float64) error {
 
-	_, err := r.store.db.Exec(fmt.Sprintf("update checkpoints.\"%d\" set quantity = %f where component_id = %d", line, quantity, component_id))
+	result, err := r.store.db.Exec(fmt.Sprintf("update checkpoints.\"%d\" set quantity = %f where component_id = %d", line, quantity, component_id))
 	if err != nil {
 		return err
 	}
 
-	return nil
+	affected, _ := result.RowsAffected()
+	if affected > 0 {
+		return nil
+	}
+
+	return errors.New("affected 0")
 }
