@@ -19,7 +19,7 @@ func (s *Server) CheckRole() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		s.Logger.Info("req token: ", req.Token)
+		// s.Logger.Info("req token: ", req.Token)
 		parsedToken, err := ParseToken(req.Token)
 
 		if err != nil {

@@ -49,6 +49,10 @@ func (s *Server) configureRouter() {
 	{
 		ware.POST("/components", s.GetAllComponents)                          // {"token": string}
 		ware.POST("/components/outcome", s.GetAllComponentsOutCome)           // {"token": string}
+		ware.POST("/components/gp", s.GetGPCompontents)                       // {"token": string}
+		ware.POST("/components/gp/add", s.GPCompontentsAdd)                   // {"token": string, "checkpoint_id":int, "component_id":int, "model_id":int}
+		ware.POST("/components/gp/added", s.GPCompontentsAdded)               // {"token": string}
+		ware.POST("/components/gp/remove", s.GPCompontentsRemove)             // {"token": string}
 		ware.POST("/component", s.GetCompoment)                               // {"id": int, "token": string}
 		ware.POST("/component/update", s.UpdateCompoment)                     // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "id":int, "token": string}
 		ware.POST("/component/add", s.AddComponent)                           // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "token": string}
@@ -74,7 +78,8 @@ func (s *Server) configureRouter() {
 		ware.POST("/production/sector/balance", s.GetSectorBalance)           // {"line":int, "token": string}
 		ware.POST("/production/sector/balance/update", s.SectorBalanceUpdate) // {"line":int, "component_id": int, "quantity": float64, "token": string}
 		ware.POST("/gscode/get", s.GetKeys)                                   // {"token": string}
-		ware.POST("/akt/input", s.AktInput)                                   // {"token": string, "component_id": int, "data": string, "quantity": float64, "checkpoint_id": int} data => comment
+		ware.POST("/akt/input", s.AktInput)                                   // {"token": string, "component_id": int, "comment": string, "quantity": float64, "checkpoint_id": int}
+		ware.POST("/akt/report", s.AktReport)                                 // {"date1":string, "date2":string, "token": string}
 	}
 
 	global := s.Router.Group("/api") //Route for global use
@@ -140,6 +145,7 @@ func (s *Server) configureRouter() {
 		production.POST("/galileo/todaymodels", s.GalileoTodayModels)       // {}
 		production.POST("/models", s.Models)                                // {}
 		production.POST("/metall/serial", s.MetallSerial)                   // {"id", int}
+		production.POST("/logistics", s.ProductionLogistics)                // {"date1":string, "date2":string, "token": string}
 		// production.POST("/galileo/tcp", s.GalileoTCP)                      // {"id", int}
 	}
 	s.Router.POST("galileo/input", s.GalileoInput)

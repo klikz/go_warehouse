@@ -31,6 +31,102 @@ func (r *Repo) AktInput(account models.Akt) error {
 	return errors.New("server error")
 }
 
+func (r *Repo) GetGPCompontents() (interface{}, error) {
+
+	type GPComponent struct {
+		ID    int    `json:"id"`
+		Code  string `json:"code"`
+		Name  string `json:"name"`
+		Specs string `json:"specs"`
+	}
+	rows, err := r.store.db.Query(`
+	select c.id, c.code, c."name", c.specs  from components c 
+	where c."type" = 3 and c.status = 1`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var components []GPComponent
+
+	for rows.Next() {
+		var comp GPComponent
+		if err := rows.Scan(&comp.ID, &comp.Code, &comp.Name, &comp.Specs); err != nil {
+			return components, err
+		}
+		components = append(components, comp)
+	}
+	if err = rows.Err(); err != nil {
+		return components, err
+	}
+	return components, nil
+}
+
+func (r *Repo) GPCompontentsAdded() (interface{}, error) {
+
+	type GPComponent struct {
+		ID         int    `json:"id"`
+		Checkpoint string `json:"checkpoint"`
+		Component  string `json:"component"`
+		Code       string `json:"code"`
+		Model      string `json:"model"`
+	}
+	rows, err := r.store.db.Query(`
+	select pg.id, c."name" as checkpoint, c2."name" as component, c2.code, m."name" as model 
+	from production_gp pg, models m, checkpoints c, components c2 
+	where m.id = pg.model_id 
+	and c.id = pg.checkpoint_id 
+	and c2.id = pg.component_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var components []GPComponent
+
+	for rows.Next() {
+		var comp GPComponent
+		if err := rows.Scan(&comp.ID, &comp.Checkpoint, &comp.Component, &comp.Code, &comp.Model); err != nil {
+			return components, err
+		}
+		components = append(components, comp)
+	}
+	if err = rows.Err(); err != nil {
+		return components, err
+	}
+	return components, nil
+}
+
+func (r *Repo) GPCompontentsAdd(line, component, model int) error {
+	result, err := r.store.db.Exec(`insert into production_gp (checkpoint_id, component_id, model_id) values ($1, $2, $3)`, line, component, model)
+	if err != nil {
+		logrus.Info("err: ", err)
+		return err
+	}
+	rowsAffected, _ := result.RowsAffected()
+
+	if rowsAffected > 0 {
+		return nil
+	}
+	return errors.New("server error")
+}
+
+func (r *Repo) GPCompontentsRemove(id int) error {
+	result, err := r.store.db.Exec(`
+	delete from production_gp 
+	where id = $1
+	`, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, _ := result.RowsAffected()
+
+	if rowsAffected > 0 {
+		return nil
+	}
+	return errors.New("server error")
+}
+
 func (r *Repo) GetAllComponentsOutcome() (interface{}, error) {
 	rows, err := r.store.db.Query(`
 	select c.available, c.id, c.code, c."name", c2."name" as Checkpoint, c2.id as checkpoint_id,  c.unit, c.specs, c.photo, to_char(c."time", 'DD-MM-YYYY HH24:MI') "time", 
@@ -59,6 +155,7 @@ func (r *Repo) GetAllComponentsOutcome() (interface{}, error) {
 	}
 	return components, nil
 }
+
 func (r *Repo) GetAllComponents() (interface{}, error) {
 	rows, err := r.store.db.Query(`
 	select c.available, c.id, c.code, c."name", c2."name" as Checkpoint, c2.id as checkpoint_id,  c.unit, c.specs, c.photo, to_char(c."time", 'DD-MM-YYYY HH24:MI') "time", 
@@ -779,4 +876,44 @@ func (r *Repo) GetKeys() (interface{}, error) {
 	}
 
 	return keys, nil
+}
+
+func (r *Repo) AktReport(date1, date2 string) (interface{}, error) {
+
+	type Report struct {
+		Email     string  `json:"email"`
+		Component string  `json:"component"`
+		Time      string  `json:"time"`
+		Quantity  float64 `json:"quantity"`
+		Comment   string  `json:"comment"`
+	}
+
+	rows, err := r.store.db.Query(`
+	select  u.email, c."name" as component, to_char(a."time" , 'DD-MM-YYYY HH12:MI') time, a.quantity, a."comment"
+	from akt a, components c, users u 
+	where a."time"::date>=to_date($1, 'YYYY-MM-DD') 
+	and a."time"::date<=to_date($2, 'YYYY-MM-DD') 
+	and u.id = a.user_id 
+	and c.id = a.component_id
+	`, date1, date2)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	report := []Report{}
+
+	for rows.Next() {
+		var comp Report
+		if err := rows.Scan(&comp.Email, &comp.Component, &comp.Time, &comp.Quantity, &comp.Comment); err != nil {
+			return nil, err
+		}
+		report = append(report, comp)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return report, nil
 }

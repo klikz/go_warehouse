@@ -12,6 +12,35 @@ import (
 	"github.com/google/uuid"
 )
 
+func (s *Server) ProductionLogistics(c *gin.Context) {
+	resp := models.Responce{}
+	lineIncome := c.GetInt("line")
+	lineOutcome := c.GetInt("checkpoint")
+	serial := c.GetString("serial")
+	s.Logger.Info("lineIncome: ", lineIncome, " lineOutcome: ", lineOutcome, " serial: ", serial)
+
+	if err := s.Store.Repo().ProductionIncomeSerialsInput(lineIncome, serial); err != nil {
+		s.Logger.Error("ProductionLogistics ProductionIncomeSerialsInput: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		c.Abort()
+		return
+	}
+
+	err := s.Store.Repo().IncomeInProduction(lineIncome, lineOutcome, serial)
+	if err != nil {
+		s.Logger.Error("ProductionLogistics IncomeInProduction: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		c.Abort()
+		return
+	}
+	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
 func (s *Server) GetLast(c *gin.Context) {
 	resp := models.Responce{}
 	temp, _ := c.Get("line")
@@ -456,6 +485,7 @@ func (s *Server) SerialInput(c *gin.Context) {
 		c.JSON(200, resp)
 		return
 	}
+
 	resp.Result = "ok"
 	c.JSON(200, resp)
 }
@@ -469,7 +499,7 @@ func (s *Server) PackingSerialInput(c *gin.Context) {
 	serial := temp.(string)
 	retry := temp2.(bool)
 
-	s.Logger.Info("Route: PackingSerialInput, retry: ", retry)
+	// s.Logger.Info("Route: PackingSerialInput, retry: ", retry)
 	// packing := temp2.(string)
 
 	// if packing == serial || packing == "" {

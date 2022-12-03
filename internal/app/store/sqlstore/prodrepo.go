@@ -79,8 +79,77 @@ func (r *Repo) debitFromLine(modelId, lineId int) error {
 	}
 	return nil
 }
+
+func (r *Repo) GPComponentAddToLine(line_id, component_id int) error {
+	_, err := r.store.repo.store.db.Exec(fmt.Sprintf(`
+		with p_param as (
+		select %v::int8 component_id), i_products as (
+		INSERT INTO checkpoints."%v" (component_id, quantity)
+		select t.component_id, 1
+		from p_param t
+		where not exists (select 1 from checkpoints."%v" p where p.component_id  = t.component_id)
+		returning checkpoints."%v".*),u_products as (
+		update checkpoints."%v" t
+		set quantity = quantity + 1
+		from p_param p
+		where p.component_id = t.component_id
+		returning t.*)
+		select case when s1.component_id is null then null else 'add' end add_p,
+		case when s2.component_id is null then null else 'updated' end edit_p
+		from p_param p
+		left join i_products s1
+		on true
+		left join u_products s2
+		on true   
+	`, component_id, line_id, line_id, line_id, line_id))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *Repo) ProductionIncomeSerialsInput(lineIncome int, serial string) error {
+	_, err := r.store.db.Exec(`insert into prod_income_serials (serial, checkpoint_id) values ($1, $2)`, serial, lineIncome)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *Repo) IncomeInProduction(lineIncome, lineOutcome int, serial string) error {
+
+	serialSlice := serial[0:6]
+	componentID := 0
+
+	//check for vacuum hips
+	checkVacuum := serialSlice[0:2]
+	if checkVacuum == "HI" {
+		//check model
+		if err := r.store.db.QueryRow("select v.component_id from \"vacuum\" v where v.serial = $1", serialSlice).Scan(&componentID); err != nil {
+			return errors.New("serial xato 1")
+		}
+	} else {
+		//check model
+		modelID := 0
+		if err := r.store.db.QueryRow("select m.id from models m where m.code = $1", serialSlice).Scan(&modelID); err != nil {
+			return errors.New("serial xato 2")
+		}
+
+		// select component
+		if err := r.store.db.QueryRow("select pg.component_id from production_gp pg where pg.checkpoint_id = $1 and pg.model_id = $2", lineOutcome, modelID).Scan(&componentID); err != nil {
+			return errors.New("serial xato 3")
+		}
+	}
+
+	if err := r.GPComponentAddToLine(lineIncome, componentID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func CheckLaboratory(serial string) (string, error) {
-	logrus.Info("Check laboratory")
+	// logrus.Info("Check laboratory")
 	response, err := http.PostForm("http://192.168.5.250:3002/labinfo", url.Values{
 		"serial": {serial}})
 	if err != nil {
@@ -98,7 +167,7 @@ func CheckLaboratory(serial string) (string, error) {
 }
 
 func PrintLocal(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
-	logrus.Info("Print local")
+	// logrus.Info("Print local")
 	defer wg.Done()
 	reprint := true
 	count := 0
@@ -109,7 +178,7 @@ func PrintLocal(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
 			close(channel)
 			return
 		}
-		logrus.Info("Printing started")
+		// logrus.Info("Printing started")
 		url := "http://192.168.5.118/BarTender/api/v1/print" //for test
 		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 		if err != nil {
@@ -131,13 +200,13 @@ func PrintLocal(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
 		body, _ := ioutil.ReadAll(resp.Body)
 		var jsonMap map[string]interface{}
 		json.Unmarshal([]byte(string(body)), &jsonMap)
-		logrus.Info("body: ", string(body))
+		// logrus.Info("body: ", string(body))
 
 		if strings.Contains(string(body), "BarTender успешно отправил задание") {
 			reprint = false
 			channel <- "ok"
 			close(channel)
-			logrus.Info("Printing end")
+			// logrus.Info("Printing end")
 			return
 		}
 		count++
@@ -158,7 +227,7 @@ func PrintMetall(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
 			close(channel)
 			return
 		}
-		logrus.Info("Printing started")
+		// logrus.Info("Printing started")
 		url := "http://192.168.5.126/BarTender/api/v1/print"
 		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 		if err != nil {
@@ -180,13 +249,13 @@ func PrintMetall(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
 		body, _ := ioutil.ReadAll(resp.Body)
 		var jsonMap map[string]interface{}
 		json.Unmarshal([]byte(string(body)), &jsonMap)
-		logrus.Info("body: ", string(body))
+		// logrus.Info("body: ", string(body))
 
 		if strings.Contains(string(body), "BarTender успешно отправил задание") {
 			reprint = false
 			channel <- "ok"
 			close(channel)
-			logrus.Info("Printing end")
+			// logrus.Info("Printing end")
 			return
 		}
 		count++
@@ -834,6 +903,7 @@ func (r *Repo) GetCountRepaired() (int, error) {
 
 	return count, nil
 }
+
 func (r *Repo) GetRemontByDate(date1, date2 string) (interface{}, error) {
 
 	type Remont struct {
@@ -935,11 +1005,29 @@ func (r *Repo) SerialInput(line int, serial string) error {
 	type CheckStation struct {
 		product_id int
 	}
+	var GPID []int
+
+	rows, err := r.store.db.Query(`
+	select pg.component_id  from production_gp pg where pg.checkpoint_id = $1 and pg.model_id = $2
+	`, line, modelInfo.id)
+
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var debit int
+		rows.Scan(&debit)
+		GPID = append(GPID, debit)
+	}
+
+	logrus.Info("GPID: ", GPID, "line: ", line)
+
 	switch line {
 	//check sborka for ppu
 	case 10:
 		check := &CheckStation{}
-		if err := r.store.db.QueryRow("select product_id from production p where serial = $1 and  checkpoint_id = $2", serial, 2).Scan(&check.product_id); err != nil {
+		if err := r.store.db.QueryRow("select product_id from production p where serial = $1 and checkpoint_id = $2", serial, 2).Scan(&check.product_id); err != nil {
 			req, err := setPin("0", modelInfo.address)
 			if err != nil {
 				return err
@@ -1033,6 +1121,13 @@ func (r *Repo) SerialInput(line int, serial string) error {
 				logrus.Error("Case9 debitFromLine: ", err)
 				return err
 			}
+
+			for i := 0; i < len(GPID); i++ {
+				err := r.GPComponentAddToLine(line, GPID[i])
+				if err != nil {
+					logrus.Error("GPComponentAddToLine: ", err)
+				}
+			}
 			return nil
 		}
 
@@ -1067,7 +1162,15 @@ func (r *Repo) SerialInput(line int, serial string) error {
 			return err
 		}
 		logrus.Info("from raspberry: ", req)
+
+		for i := 0; i < len(GPID); i++ {
+			err := r.GPComponentAddToLine(line, GPID[i])
+			if err != nil {
+				logrus.Error("GPComponentAddToLine: ", err)
+			}
+		}
 	}
+
 	return nil
 }
 
@@ -1080,7 +1183,7 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 		Model     string `json:"model"`
 		Result    string `json:"result"`
 	}
-	logrus.Info("PackingSerialInput started")
+	// logrus.Info("PackingSerialInput started")
 	res, err := CheckLaboratory(serial)
 	if err != nil {
 		return errors.New("check laboratory err")
@@ -1099,7 +1202,7 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 	}
 	var modelId ModelId
 	var serialSlice = serial[0:6]
-	logrus.Info("Get id and name")
+	// logrus.Info("Get id and name")
 	if err := r.store.db.QueryRow("select m.id, m.name from models m where m.code = $1", serialSlice).Scan(&modelId.id, &modelId.name); err != nil {
 		return errors.New("serial xato")
 	}
@@ -1247,7 +1350,7 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 	// }
 
 	if errorText1 == "ok" && errorText2 == "ok" {
-		return errors.New("dublicate printed")
+		return nil
 	} else {
 		logrus.Error("error in printing: " + errorText1 + errorText2)
 		return errors.New("qaytadan urinib ko'ring")
@@ -1265,10 +1368,21 @@ func (r *Repo) GetInfoBySerial(serial string) (interface{}, error) {
 		Time       string `json:"time"`
 	}
 
+	type Remont struct {
+		Kiritgan     string `json:"kiritgan"`
+		RemontPerson string `json:"remont_person"`
+		Input        string `json:"input"`
+		Output       string `json:"output"`
+		Checkpoint   string `json:"checkpoint"`
+		DefectName   string `json:"defect"`
+		Status       int    `json:"status"`
+	}
+
 	type Info struct {
 		PackingInfo    []Packing
 		ProductionInfo []Production
 		GalileoInfo    models.Galileo
+		Remont         []Remont
 	}
 
 	var packing []Packing
@@ -1328,28 +1442,47 @@ func (r *Repo) GetInfoBySerial(serial string) (interface{}, error) {
 	where g.serial = $2
 	and g.checkpoint_id = c.id`, serial, serial)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			fmt.Println("no rows")
-			return nil, errors.New("no data")
-		}
-		fmt.Println("no rows")
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var comp Production
 		if err := rows.Scan(&comp.Checkpoint, &comp.Time); err != nil {
-			return production, errors.New("no data")
+			return nil, err
 		}
 		production = append(production, comp)
 	}
 	if err = rows.Err(); err != nil {
-		return nil, errors.New("no data")
+		return nil, err
 	}
+
+	var remont []Remont
+	rows2, _ := r.store.db.Query(`
+	select r.person_id as kiritgan, r.repair_person as remont_person, 
+	COALESCE(to_char(r."input" , 'DD-MM-YYYY HH24:MI'), ' ') as input,
+	COALESCE(to_char(r."output" , 'DD-MM-YYYY HH24:MI'), ' ') as output, 
+	c."name" as checkpoint, d.defect_name, r.status  
+	from remont r, checkpoints c, defects d 
+	where r.serial = $1
+	and c.id = r.checkpoint_id 
+	and d.id  = r.defect_id`, serial)
+
+	defer rows2.Close()
+	for rows2.Next() {
+		var comp Remont
+		if err := rows2.Scan(&comp.Kiritgan, &comp.RemontPerson, &comp.Input, &comp.Output, &comp.Checkpoint, &comp.DefectName, &comp.Status); err != nil {
+			return nil, err
+		}
+		remont = append(remont, comp)
+	}
+
 	var productInfo Info
 	productInfo.PackingInfo = packing
 	productInfo.ProductionInfo = production
 	productInfo.GalileoInfo = galileo
+	productInfo.Remont = remont
+
+	fmt.Println("remont: ", productInfo.Remont)
 
 	// if productInfo.GalileoInfo.Serial == "" {
 	// 	return nil, errors.New("no data")
@@ -1496,6 +1629,21 @@ func (r *Repo) Metall_Serial(id int) error {
 func (r *Repo) SectorBalanceUpdate(line, component_id int, quantity float64) error {
 
 	result, err := r.store.db.Exec(fmt.Sprintf("update checkpoints.\"%d\" set quantity = %f where component_id = %d", line, quantity, component_id))
+	if err != nil {
+		return err
+	}
+
+	affected, _ := result.RowsAffected()
+	if affected > 0 {
+		return nil
+	}
+
+	return errors.New("affected 0")
+}
+
+func (r *Repo) SectorBalanceUpdateByQuantity(line, component_id int, quantity float64) error {
+
+	result, err := r.store.db.Exec(fmt.Sprintf("update checkpoints.\"%d\" set quantity = quantity - %f where component_id = %d", line, quantity, component_id))
 	if err != nil {
 		return err
 	}

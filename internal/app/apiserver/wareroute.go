@@ -12,6 +12,23 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func (s *Server) AktReport(c *gin.Context) {
+	resp := models.Responce{}
+	date1 := c.GetString(("date1"))
+	date2 := c.GetString(("date2"))
+
+	data, err := s.Store.Repo().AktReport(date1, date2)
+	if err != nil {
+		s.Logger.Error("AktReport: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+
+	c.JSON(200, data)
+}
+
 func (s *Server) AktInput(c *gin.Context) {
 
 	account := models.Akt{}
@@ -36,8 +53,8 @@ func (s *Server) AktInput(c *gin.Context) {
 
 	s.Logger.Info("user: ", account.UserName, " update sector: ", account.Checkpoint_id, account.Component_id, account.Quantity)
 
-	if err := s.Store.Repo().SectorBalanceUpdate(account.Checkpoint_id, account.Component_id, account.Quantity); err != nil {
-		s.Logger.Error("AktInput SectorBalanceUpdate: ", err)
+	if err := s.Store.Repo().SectorBalanceUpdateByQuantity(account.Checkpoint_id, account.Component_id, account.Quantity); err != nil {
+		s.Logger.Error("AktInput SectorBalanceUpdateByQuantity: ", err)
 		resp.Result = "error"
 		resp.Err = "Wrong Credentials"
 		c.JSON(200, resp)
@@ -74,6 +91,74 @@ func (s *Server) GetAllComponentsOutCome(c *gin.Context) {
 		return
 	}
 	c.JSON(200, data)
+}
+func (s *Server) GetGPCompontents(c *gin.Context) {
+
+	data, err := s.Store.Repo().GetGPCompontents()
+	if err != nil {
+		resp := models.Responce{}
+		s.Logger.Error("GetGPCompontents: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	c.JSON(200, data)
+}
+
+func (s *Server) GPCompontentsAdd(c *gin.Context) {
+
+	resp := models.Responce{}
+	line := c.GetInt("checkpoint_id")
+	component := c.GetInt("component_id")
+	model := c.GetInt("model_id")
+
+	err := s.Store.Repo().GPCompontentsAdd(line, component, model)
+	if err != nil {
+		s.Logger.Error("GPCompontentsAdd: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	resp.Result = "ok"
+
+	c.JSON(200, resp)
+}
+
+func (s *Server) GPCompontentsRemove(c *gin.Context) {
+
+	resp := models.Responce{}
+	id := c.GetInt("id")
+
+	err := s.Store.Repo().GPCompontentsRemove(id)
+	if err != nil {
+		s.Logger.Error("GPCompontentsRemove: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	resp.Result = "ok"
+
+	c.JSON(200, resp)
+}
+
+func (s *Server) GPCompontentsAdded(c *gin.Context) {
+
+	resp := models.Responce{}
+	components, err := s.Store.Repo().GPCompontentsAdded()
+	if err != nil {
+		s.Logger.Error("GPCompontentsAdded: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	resp.Result = "ok"
+	resp.Data = components
+
+	c.JSON(200, resp)
 }
 
 func (s *Server) GetCompoment(c *gin.Context) {
