@@ -472,10 +472,8 @@ func (s *Server) UpdateRemont(c *gin.Context) {
 
 func (s *Server) SerialInput(c *gin.Context) {
 	resp := models.Responce{}
-	temp, _ := c.Get("serial")
-	temp2, _ := c.Get("line")
-	serial := temp.(string)
-	line := temp2.(int)
+	serial := c.GetString("serial")
+	line := c.GetInt("line")
 
 	err := s.Store.Repo().SerialInput(line, serial)
 	if err != nil {
