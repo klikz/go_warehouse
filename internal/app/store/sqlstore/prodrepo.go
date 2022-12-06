@@ -103,6 +103,15 @@ func (r *Repo) GPComponentAddToLine(line_id, component_id int) error {
 		on true   
 	`, component_id, line_id, line_id, line_id, line_id))
 	if err != nil {
+		fmt.Println("err gp add to line: ", err)
+		return err
+	}
+	return nil
+}
+
+func (r *Repo) DecreaseFromLine(line_id, component_id int) error {
+	_, err := r.store.db.Exec(fmt.Sprintf(`update checkpoints."%v" set quantity = quantity - 1 where component_id = %v`, line_id, component_id))
+	if err != nil {
 		return err
 	}
 	return nil
@@ -124,19 +133,27 @@ func (r *Repo) IncomeInProduction(lineIncome, lineOutcome int, serial string) er
 	//check for vacuum hips
 	checkVacuum := serialSlice[0:2]
 	if checkVacuum == "HI" {
+		if lineOutcome != 1 {
+			return errors.New("liniya xato")
+		}
 		//check model
 		if err := r.store.db.QueryRow("select v.component_id from \"vacuum\" v where v.serial = $1", serialSlice).Scan(&componentID); err != nil {
+			fmt.Println("error 1 : ", err.Error())
 			return errors.New("serial xato 1")
 		}
 	} else {
 		//check model
 		modelID := 0
+		fmt.Println("serialSlice: ", serialSlice)
 		if err := r.store.db.QueryRow("select m.id from models m where m.code = $1", serialSlice).Scan(&modelID); err != nil {
+			fmt.Println("error 2 : ", err.Error())
 			return errors.New("serial xato 2")
 		}
 
+		fmt.Println("lineOutcome ", lineOutcome, " modelID", modelID)
 		// select component
 		if err := r.store.db.QueryRow("select pg.component_id from production_gp pg where pg.checkpoint_id = $1 and pg.model_id = $2", lineOutcome, modelID).Scan(&componentID); err != nil {
+			fmt.Println("error 3 : ", err.Error())
 			return errors.New("serial xato 3")
 		}
 	}
@@ -145,6 +162,9 @@ func (r *Repo) IncomeInProduction(lineIncome, lineOutcome int, serial string) er
 		return err
 	}
 
+	if err := r.DecreaseFromLine(lineOutcome, componentID); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -371,6 +391,43 @@ func (r *Repo) GetSectorBalance(line int) (interface{}, error) {
 	}
 
 	rows, err := r.store.db.Query(fmt.Sprintf(`select t.component_id, c.code,  t.quantity, c."name" from checkpoints."%d" t, components c where t.component_id = c.id ORDER BY c."name"`, line))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var balance []Balance
+	for rows.Next() {
+		var comp Balance
+		if err := rows.Scan(&comp.Component_id,
+			&comp.Code,
+			&comp.Quantity,
+			&comp.Name); err != nil {
+			return balance, err
+		}
+		balance = append(balance, comp)
+	}
+	if err = rows.Err(); err != nil {
+		return balance, err
+	}
+	return balance, nil
+}
+
+func (r *Repo) GetSectorBalanceGP(line int) (interface{}, error) {
+
+	type Balance struct {
+		Component_id int     `json:"component_id"`
+		Code         string  `json:"code"`
+		Quantity     float32 `json:"quantity"`
+		Name         string  `json:"name"`
+	}
+
+	rows, err := r.store.db.Query(fmt.Sprintf(`
+	select t.component_id, c.code,  t.quantity, c."name" 
+	from checkpoints."%v" t, components c 
+	where t.component_id = c.id 
+	and c."type" = 3
+	ORDER BY c."name"
+	`, line))
 	if err != nil {
 		return nil, err
 	}

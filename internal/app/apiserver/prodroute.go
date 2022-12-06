@@ -37,6 +37,7 @@ func (s *Server) ProductionLogistics(c *gin.Context) {
 		c.Abort()
 		return
 	}
+
 	resp.Result = "ok"
 	c.JSON(200, resp)
 }
@@ -107,8 +108,7 @@ func (s *Server) GetTodayModels(c *gin.Context) {
 
 func (s *Server) GetSectorBalance(c *gin.Context) {
 	resp := models.Responce{}
-	temp, _ := c.Get("line")
-	line := temp.(int)
+	line := c.GetInt("line")
 
 	data, err := s.Store.Repo().GetSectorBalance(line)
 	if err != nil {
@@ -119,6 +119,23 @@ func (s *Server) GetSectorBalance(c *gin.Context) {
 		return
 	}
 	c.JSON(200, data)
+}
+
+func (s *Server) GetSectorBalanceGP(c *gin.Context) {
+	resp := models.Responce{}
+	line := c.GetInt("line")
+
+	data, err := s.Store.Repo().GetSectorBalanceGP(line)
+	if err != nil {
+		s.Logger.Error("GetSectorBalance: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	resp.Result = "ok"
+	resp.Data = data
+	c.JSON(200, resp)
 }
 
 func (s *Server) SectorBalanceUpdate(c *gin.Context) {
@@ -141,6 +158,7 @@ func (s *Server) SectorBalanceUpdate(c *gin.Context) {
 	resp.Result = "ok"
 	c.JSON(200, resp)
 }
+
 func (s *Server) GetPackingLast(c *gin.Context) {
 	resp := models.Responce{}
 	data, err := s.Store.Repo().GetPackingLast()

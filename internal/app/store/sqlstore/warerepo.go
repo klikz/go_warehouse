@@ -441,7 +441,7 @@ func (r *Repo) Models() (interface{}, error) {
 		Comment string `json:"comment"`
 	}
 
-	rows, err := r.store.db.Query(`select m.id, m."name", m.code, m."comment" from models m`)
+	rows, err := r.store.db.Query(`select m.id, m."name", m.code, m."comment" from models m order by m.code `)
 
 	if err != nil {
 		return nil, err

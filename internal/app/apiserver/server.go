@@ -122,6 +122,7 @@ func (s *Server) configureRouter() {
 		production.POST("/today", s.GetToday)                               // {"line": int}
 		production.POST("/today/models", s.GetTodayModels)                  // {"line": int}
 		production.POST("/sector/balance", s.GetSectorBalance)              // {"line": int}
+		production.POST("/sector/balance/gp", s.GetSectorBalanceGP)         // {"line": int}
 		production.POST("/packing/last", s.GetPackingLast)                  // {}
 		production.POST("/packing/today", s.GetPackingToday)                // {}
 		production.POST("/packing/today/serial", s.GetPackingTodaySerial)   // {}
@@ -145,7 +146,7 @@ func (s *Server) configureRouter() {
 		production.POST("/galileo/todaymodels", s.GalileoTodayModels)       // {}
 		production.POST("/models", s.Models)                                // {}
 		production.POST("/metall/serial", s.MetallSerial)                   // {"id", int}
-		production.POST("/logistics", s.ProductionLogistics)                // {"date1":string, "date2":string, "token": string}
+		production.POST("/logistics", s.ProductionLogistics)                // {"line":int, "checkpoint_id":int, "serial": string}  //line-> income, checkpoint->outcome
 		// production.POST("/galileo/tcp", s.GalileoTCP)                      // {"id", int}
 	}
 	s.Router.POST("galileo/input", s.GalileoInput)
