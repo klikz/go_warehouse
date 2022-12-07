@@ -138,7 +138,6 @@ func (r *Repo) IncomeInProduction(lineIncome, lineOutcome int, serial string) er
 		}
 		//check model
 		if err := r.store.db.QueryRow("select v.component_id from \"vacuum\" v where v.serial = $1", serialSlice).Scan(&componentID); err != nil {
-			fmt.Println("error 1 : ", err.Error())
 			return errors.New("serial xato 1")
 		}
 	} else {
@@ -146,14 +145,12 @@ func (r *Repo) IncomeInProduction(lineIncome, lineOutcome int, serial string) er
 		modelID := 0
 		fmt.Println("serialSlice: ", serialSlice)
 		if err := r.store.db.QueryRow("select m.id from models m where m.code = $1", serialSlice).Scan(&modelID); err != nil {
-			fmt.Println("error 2 : ", err.Error())
 			return errors.New("serial xato 2")
 		}
 
 		fmt.Println("lineOutcome ", lineOutcome, " modelID", modelID)
 		// select component
 		if err := r.store.db.QueryRow("select pg.component_id from production_gp pg where pg.checkpoint_id = $1 and pg.model_id = $2", lineOutcome, modelID).Scan(&componentID); err != nil {
-			fmt.Println("error 3 : ", err.Error())
 			return errors.New("serial xato 3")
 		}
 	}
