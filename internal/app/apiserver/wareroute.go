@@ -12,6 +12,111 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func (s *Server) TodayStatistics(c *gin.Context) {
+	type AllInfo struct {
+		Counters         interface{} `json:"counters"`
+		DefectCounters   interface{} `json:"defect_counters"`
+		MetallModels     interface{} `json:"metall_models"`
+		SborkaModels     interface{} `json:"sborka_models"`
+		PpuModels        interface{} `json:"ppu_models"`
+		AgregatModels    interface{} `json:"agregat_models"`
+		FreonModels      interface{} `json:"freon_models"`
+		LaboratoryModels interface{} `json:"laboratory_models"`
+		PackingModels    interface{} `json:"packing_models"`
+	}
+
+	resp := models.Responce{}
+	allInfo := AllInfo{}
+
+	counters, err := s.Store.Repo().GetCounters()
+	if err != nil {
+		s.Logger.Error("GetCounters: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+
+	allInfo.DefectCounters, err = s.Store.Repo().GetDefectCounters()
+	if err != nil {
+		s.Logger.Error("allInfo.DefectCounters: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+
+	allInfo.MetallModels, err = s.Store.Repo().GetTodayModels(9)
+	if err != nil {
+		s.Logger.Error("allInfo.MetallModels: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+
+	allInfo.SborkaModels, err = s.Store.Repo().GetTodayModels(2)
+	if err != nil {
+		s.Logger.Error("allInfo.SborkaModels: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+
+	allInfo.PpuModels, err = s.Store.Repo().GetTodayModels(19)
+	if err != nil {
+		s.Logger.Error("allInfo.PpuModels: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+
+	allInfo.FreonModels, err = s.Store.Repo().GalileoTodayModels()
+	if err != nil {
+		s.Logger.Error("allInfo.FreonModels: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+
+	allInfo.LaboratoryModels, err = s.Store.Repo().GetTodayModels(11)
+	if err != nil {
+		s.Logger.Error("allInfo.LaboratoryModels: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+
+	allInfo.AgregatModels, err = s.Store.Repo().GetTodayModels(2)
+	if err != nil {
+		s.Logger.Error("allInfo.AgregatModels: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+
+	allInfo.PackingModels, err = s.Store.Repo().GetPackingTodayModels()
+	if err != nil {
+		s.Logger.Error("allInfo.PackingModels: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+
+	allInfo.Counters = counters
+
+	resp.Result = "ok"
+	resp.Data = allInfo
+
+	c.JSON(200, resp)
+}
+
 func (s *Server) AktReport(c *gin.Context) {
 	resp := models.Responce{}
 	date1 := c.GetString(("date1"))

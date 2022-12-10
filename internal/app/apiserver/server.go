@@ -111,6 +111,9 @@ func (s *Server) configureRouter() {
 		global.POST("/production/serial/info", s.GetInfoBySerial)                  // {"serial": string, "token": string}
 		global.POST("/production/galileo/todaymodels", s.GalileoTodayModels)       // {"token": string}
 		global.POST("/users/register", s.Create)                                   // {"email":string, "password":string,"token": string}
+		global.POST("/production/today/statistics", s.TodayStatistics)             // {"token": string}
+		global.POST("/production/plan/today", s.GetPlan)                           // {"token": string}
+		// global.POST("/ware/components/outcome", s.GetAllComponentsOutCome)         // {"token": string}
 
 	}
 

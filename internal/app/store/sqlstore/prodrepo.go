@@ -143,12 +143,9 @@ func (r *Repo) IncomeInProduction(lineIncome, lineOutcome int, serial string) er
 	} else {
 		//check model
 		modelID := 0
-		fmt.Println("serialSlice: ", serialSlice)
 		if err := r.store.db.QueryRow("select m.id from models m where m.code = $1", serialSlice).Scan(&modelID); err != nil {
 			return errors.New("serial xato 2")
 		}
-
-		fmt.Println("lineOutcome ", lineOutcome, " modelID", modelID)
 		// select component
 		if err := r.store.db.QueryRow("select pg.component_id from production_gp pg where pg.checkpoint_id = $1 and pg.model_id = $2", lineOutcome, modelID).Scan(&componentID); err != nil {
 			return errors.New("serial xato 3")
@@ -166,7 +163,7 @@ func (r *Repo) IncomeInProduction(lineIncome, lineOutcome int, serial string) er
 }
 
 func CheckLaboratory(serial string) (string, error) {
-	// logrus.Info("Check laboratory")
+	logrus.Info("Check laboratory")
 	response, err := http.PostForm("http://192.168.5.250:3002/labinfo", url.Values{
 		"serial": {serial}})
 	if err != nil {
@@ -217,7 +214,7 @@ func PrintLocal(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
 		body, _ := ioutil.ReadAll(resp.Body)
 		var jsonMap map[string]interface{}
 		json.Unmarshal([]byte(string(body)), &jsonMap)
-		// logrus.Info("body: ", string(body))
+		logrus.Info("body: ", string(body))
 
 		if strings.Contains(string(body), "BarTender успешно отправил задание") {
 			reprint = false
@@ -282,6 +279,60 @@ func PrintMetall(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
 	// logrus.Info("Printing: ", string(jsonStr))
 }
 
+func (r *Repo) PlanCountToday() (int, error) {
+
+	count := 0
+
+	err := r.store.db.QueryRow(`
+		select sum(p2.quantity) from plan p2 where p2."date" >= current_date
+	`).Scan(&count)
+	if err != nil {
+		return count, err
+	}
+
+	return count, nil
+}
+
+func (r *Repo) PlanByModelToday() (interface{}, error) {
+
+	type Plan struct {
+		ID       int    `json:"id"`
+		Name     string `json:"name"`
+		Time     string `json:"time"`
+		Quantity int    `json:"quantity"`
+	}
+
+	plan := []Plan{}
+
+	rows, err := r.store.db.Query(`
+	select p.id, m."name", to_char(p."date", 'YYYY-MM-DD'), p.quantity 
+	from plan p, models m  
+	where p."date" >= current_date
+	and p.model_id = m.id 	
+	`)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		comp := Plan{}
+		if err := rows.Scan(&comp.ID,
+			&comp.Name,
+			&comp.Time,
+			&comp.Quantity); err != nil {
+
+			return nil, err
+		}
+		plan = append(plan, comp)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return plan, nil
+}
+
 func (r *Repo) GetLast(line int) ([]models.Last, error) {
 
 	last := []models.Last{}
@@ -324,6 +375,64 @@ func (r *Repo) GetStatus(line int) (interface{}, error) {
 	}
 
 	return last, nil
+}
+
+func (r *Repo) GetCounters() (interface{}, error) {
+
+	type Count struct {
+		Metall     int `json:"metall"`
+		Sborka     int `json:"sborka"`
+		Ppu        int `json:"ppu"`
+		Agregat    int `json:"agregat"`
+		Freon      int `json:"freon"`
+		Laboratory int `json:"laboratory"`
+		Packing    int `json:"packing"`
+	}
+	count := Count{}
+
+	err := r.store.db.QueryRow(`
+	select (select count(*) from production p where p.checkpoint_id = 9 and "time" >= current_date) as metall, 
+	(select count(*) from production p where p.checkpoint_id = 2 and "time" >= current_date) as sborka,
+	(select count(*) from production p where p.checkpoint_id = 10 and "time" >= current_date) as ppu,
+	(select count(*) from production p where p.checkpoint_id = 19 and "time" >= current_date) as agregat,
+	(select count(*) from galileo p where p."time" >= current_date) as freon,
+	(select count(*) from production p where p.checkpoint_id = 11 and "time" >= current_date) as laboratory,
+	(select count(*) from packing p2  where "time" >= current_date) as packing
+	`).Scan(&count.Metall, &count.Sborka, &count.Ppu, &count.Agregat, &count.Freon, &count.Laboratory, &count.Packing)
+	if err != nil {
+		return count, err
+	}
+
+	return count, nil
+}
+
+func (r *Repo) GetDefectCounters() (interface{}, error) {
+
+	type DefectsCount struct {
+		Metall     int `json:"metall"`
+		Sborka     int `json:"sborka"`
+		Ppu        int `json:"ppu"`
+		Agregat    int `json:"agregat"`
+		Freon      int `json:"freon"`
+		Laboratory int `json:"laboratory"`
+		Packing    int `json:"packing"`
+	}
+	count := DefectsCount{}
+
+	err := r.store.db.QueryRow(`
+	select (select count(*) from remont p where p.checkpoint_id = 9 and p."input" >= current_date) as metall_defect, 
+	(select count(*) from remont p where p.checkpoint_id = 2 and p."input" >= current_date) as sborka_defect,
+	(select count(*) from remont p where p.checkpoint_id = 10 and p."input" >= current_date) as ppu_defect,
+	(select count(*) from remont p where p.checkpoint_id = 19 and p."input" >= current_date) as agregat_defect,
+	(select count(*) from remont p where p.checkpoint_id = 12 and p."input" >= current_date) as freon_defect,
+	(select count(*) from remont p where p.checkpoint_id = 11 and p."input" >= current_date) as laboratory_defect,
+	(select count(*) from remont p where p.checkpoint_id = 13 and p."input" >= current_date) as packing_defect
+	`).Scan(&count.Metall, &count.Sborka, &count.Ppu, &count.Agregat, &count.Freon, &count.Laboratory, &count.Packing)
+	if err != nil {
+		return count, err
+	}
+
+	return count, nil
 }
 
 func (r *Repo) GetToday(line int) (interface{}, error) {

@@ -17,7 +17,6 @@ func (s *Server) ProductionLogistics(c *gin.Context) {
 	lineIncome := c.GetInt("line")
 	lineOutcome := c.GetInt("checkpoint")
 	serial := c.GetString("serial")
-	s.Logger.Info("lineIncome: ", lineIncome, " lineOutcome: ", lineOutcome, " serial: ", serial)
 
 	if err := s.Store.Repo().ProductionIncomeSerialsInput(lineIncome, serial); err != nil {
 		s.Logger.Error("ProductionLogistics ProductionIncomeSerialsInput: ", err)
@@ -39,6 +38,41 @@ func (s *Server) ProductionLogistics(c *gin.Context) {
 	}
 
 	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
+func (s *Server) GetPlan(c *gin.Context) {
+	type AllData struct {
+		Count  int         `json:"count"`
+		Models interface{} `json:"by_model"`
+	}
+	resp := models.Responce{}
+
+	planCount, err := s.Store.Repo().PlanCountToday()
+	if err != nil {
+		s.Logger.Error("PlanCountToday: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+
+	planModels, err := s.Store.Repo().PlanByModelToday()
+	if err != nil {
+		s.Logger.Error("PlanByModelToday: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+
+	allData := AllData{}
+
+	allData.Count = planCount
+	allData.Models = planModels
+	resp.Data = allData
+	resp.Result = "ok"
+
 	c.JSON(200, resp)
 }
 
@@ -76,8 +110,8 @@ func (s *Server) GetStatus(c *gin.Context) {
 
 func (s *Server) GetToday(c *gin.Context) {
 	resp := models.Responce{}
-	temp, _ := c.Get("line")
-	line := temp.(int)
+	line := c.GetInt("line")
+	// line := temp.(int)
 
 	today, err := s.Store.Repo().GetToday(line)
 	if err != nil {
@@ -87,6 +121,8 @@ func (s *Server) GetToday(c *gin.Context) {
 		c.JSON(200, resp)
 		return
 	}
+
+	s.Logger.Info(line, today)
 	c.JSON(200, today)
 }
 
