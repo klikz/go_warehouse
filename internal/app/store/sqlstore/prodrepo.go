@@ -380,25 +380,84 @@ func (r *Repo) GetStatus(line int) (interface{}, error) {
 func (r *Repo) GetCounters() (interface{}, error) {
 
 	type Count struct {
-		Metall     int `json:"metall"`
-		Sborka     int `json:"sborka"`
-		Ppu        int `json:"ppu"`
-		Agregat    int `json:"agregat"`
-		Freon      int `json:"freon"`
-		Laboratory int `json:"laboratory"`
-		Packing    int `json:"packing"`
+		Metall_smena1     int `json:"metall_smena1"`
+		Sborka_smena1     int `json:"sborka_smena1"`
+		Ppu_smena1        int `json:"ppu_smena1"`
+		Agregat_smena1    int `json:"agregat_smena1"`
+		Freon_smena1      int `json:"freon_smena1"`
+		Laboratory_smena1 int `json:"laboratory_smena1"`
+		Packing_smena1    int `json:"packing_smena1"`
+		Metall_smena2     int `json:"metall_smena2"`
+		Sborka_smena2     int `json:"sborka_smena2"`
+		Ppu_smena2        int `json:"ppu_smena2"`
+		Agregat_smena2    int `json:"agregat_smena2"`
+		Freon_smena2      int `json:"freon_smena2"`
+		Laboratory_smena2 int `json:"laboratory_smena2"`
+		Packing_smena2    int `json:"packing_smena2"`
 	}
 	count := Count{}
 
 	err := r.store.db.QueryRow(`
-	select (select count(*) from production p where p.checkpoint_id = 9 and "time" >= current_date) as metall, 
-	(select count(*) from production p where p.checkpoint_id = 2 and "time" >= current_date) as sborka,
-	(select count(*) from production p where p.checkpoint_id = 10 and "time" >= current_date) as ppu,
-	(select count(*) from production p where p.checkpoint_id = 19 and "time" >= current_date) as agregat,
-	(select count(*) from galileo p where p."time" >= current_date) as freon,
-	(select count(*) from production p where p.checkpoint_id = 11 and "time" >= current_date) as laboratory,
-	(select count(*) from packing p2  where "time" >= current_date) as packing
-	`).Scan(&count.Metall, &count.Sborka, &count.Ppu, &count.Agregat, &count.Freon, &count.Laboratory, &count.Packing)
+	select 
+	(select count(*) from production p 
+	where p.checkpoint_id = 9 
+	and p."time" >= current_date + INTERVAL '8 hours'
+	and p."time" <= current_date + INTERVAL '20 hours') as metall_smena1, 
+	(select count(*) from production p 
+	where p.checkpoint_id = 9 
+	and p."time" >= current_date + INTERVAL '20 hours'
+	and p."time" <= current_date + INTERVAL '32 hours') as metall_smena2, 
+	(select count(*) from production p 
+	where p.checkpoint_id = 2 
+	and p."time" >= current_date + INTERVAL '8 hours'
+	and p."time" <= current_date + INTERVAL '20 hours') as sborka_smena1, 
+	(select count(*) from production p 
+	where p.checkpoint_id = 2 
+	and p."time" >= current_date + INTERVAL '20 hours'
+	and p."time" <= current_date + INTERVAL '32 hours') as sborka_smena2, 
+	(select count(*) from production p 
+	where p.checkpoint_id = 10 
+	and p."time" >= current_date + INTERVAL '8 hours'
+	and p."time" <= current_date + INTERVAL '20 hours') as ppu_smena1, 
+	(select count(*) from production p 
+	where p.checkpoint_id = 10 
+	and p."time" >= current_date + INTERVAL '20 hours'
+	and p."time" <= current_date + INTERVAL '32 hours') as ppu_smena2, 
+	(select count(*) from production p 
+	where p.checkpoint_id = 19 
+	and p."time" >= current_date + INTERVAL '8 hours'
+	and p."time" <= current_date + INTERVAL '20 hours') as agregat_smena1, 
+	(select count(*) from production p 
+	where p.checkpoint_id = 19 
+	and p."time" >= current_date + INTERVAL '20 hours'
+	and p."time" <= current_date + INTERVAL '32 hours') as agregat_smena2, 
+	(select count(*) from galileo p 
+	where p."time" >= current_date + INTERVAL '8 hours'
+	and p."time" <= current_date + INTERVAL '20 hours') as freon_smena1, 
+	(select count(*) from galileo p 
+	where p."time" >= current_date + INTERVAL '20 hours'
+	and p."time" <= current_date + INTERVAL '32 hours') as freon_smena2, 
+	(select count(*) from production p 
+	where p.checkpoint_id = 11 
+	and p."time" >= current_date + INTERVAL '8 hours'
+	and p."time" <= current_date + INTERVAL '20 hours') as laboratory_smena1, 
+	(select count(*) from production p 
+	where p.checkpoint_id = 11 
+	and p."time" >= current_date + INTERVAL '20 hours'
+	and p."time" <= current_date + INTERVAL '32 hours') as laboratory_smena2, 
+	(select count(*) from packing p 
+	where p."time" >= current_date + INTERVAL '8 hours'
+	and p."time" <= current_date + INTERVAL '20 hours') as packing_smena1, 
+	(select count(*) from packing p 
+	where p."time" >= current_date + INTERVAL '20 hours'
+	and p."time" <= current_date + INTERVAL '32 hours') as packing_smena2
+	`).Scan(&count.Metall_smena1, &count.Metall_smena2,
+		&count.Sborka_smena1, &count.Sborka_smena2,
+		&count.Ppu_smena1, &count.Ppu_smena2,
+		&count.Agregat_smena1, &count.Agregat_smena2,
+		&count.Freon_smena1, &count.Freon_smena2,
+		&count.Laboratory_smena1, &count.Laboratory_smena2,
+		&count.Packing_smena1, &count.Packing_smena2)
 	if err != nil {
 		return count, err
 	}
@@ -438,12 +497,22 @@ func (r *Repo) GetDefectCounters() (interface{}, error) {
 func (r *Repo) GetToday(line int) (interface{}, error) {
 
 	type Count struct {
-		Count int `json:"count"`
+		Smena1 int `json:"smena1"`
+		Smena2 int `json:"smena2"`
 	}
 	count := Count{}
-	currentTime := time.Now()
-
-	err := r.store.db.QueryRow("select count(*) from production where checkpoint_id = $1 and \"time\"::date=to_date($2, 'YYYY-MM-DD')", line, currentTime).Scan(&count.Count)
+	err := r.store.db.QueryRow(`
+	select (select count(*)  as smena1 from production p 
+	where p.checkpoint_id = $1
+	and p."time" >= current_date + INTERVAL '8 hours'
+	and p."time" <= current_date + INTERVAL '20 hours'
+	),
+	(select count(*)  as smena2 from production p 
+	where p.checkpoint_id = $1
+	and p."time" >= current_date + INTERVAL '20 hours'
+	and p."time" <= current_date + INTERVAL '32 hours'
+	)
+	`, line).Scan(&count.Smena1, &count.Smena2)
 	if err != nil {
 		return count, err
 	}
@@ -589,11 +658,20 @@ func (r *Repo) GetPackingLast() (interface{}, error) {
 func (r *Repo) GetPackingToday() (interface{}, error) {
 
 	type PackingToday struct {
-		Count int `json:"count"`
+		Smena1 int `json:"smena1"`
+		Smena2 int `json:"smena2"`
 	}
-	currentTime := time.Now()
 	var last PackingToday
-	err := r.store.db.QueryRow(`select count(*) from packing where "time"::date=to_date($1, 'YYYY-MM-DD')`, currentTime).Scan(&last.Count)
+	err := r.store.db.QueryRow(`
+	select (select count(*)  as smena1 from packing p 
+	where p."time" >= current_date + INTERVAL '8 hours'
+	and p."time" <= current_date + INTERVAL '20 hours'
+	),
+	(select count(*)  as smena2 from packing p 
+	where p."time" >= current_date + INTERVAL '20 hours'
+	and p."time" <= current_date + INTERVAL '32 hours'
+	)
+	`).Scan(&last.Smena1, &last.Smena2)
 	if err != nil {
 		return nil, err
 	}
@@ -1369,8 +1447,9 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 	if err := r.store.db.QueryRow("select m.id, m.name from models m where m.code = $1", serialSlice).Scan(&modelId.id, &modelId.name); err != nil {
 		return errors.New("serial xato")
 	}
-
+	checkExport := serial[2:3]
 	var wg sync.WaitGroup
+	fmt.Println(checkExport)
 
 	if retry {
 		var check interface{}
@@ -1426,6 +1505,23 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 		// 	logrus.Error("error in printing: " + errorText1)
 		// 	return err
 		// }
+		if checkExport == "E" {
+			fmt.Println("EXPORT TRUE")
+			wg.Add(1)
+			channel3 := make(chan string, 1)
+			var data3 = []byte(fmt.Sprintf(`
+			{
+				"LibraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+				"AbsolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/%s_3.btw",
+				"PrintRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+				"Printer": "Godex G500",
+				"DataEntryControls": {
+					"SeriaInput": "%s"
+				}
+			}`, serialSlice, serial))
+			go PrintLocal(data3, channel3, &wg)
+			wg.Wait()
+		}
 
 		if errorText1 == "ok" && errorText2 == "ok" {
 			return errors.New("dublicate printed")
@@ -1511,6 +1607,25 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 	// 	logrus.Error("error in printing: " + errorText1)
 	// 	return errors.New("qaytadan urinib ko'ring")
 	// }
+	wg.Wait()
+
+	if checkExport == "E" {
+		wg.Add(1)
+
+		channel3 := make(chan string, 1)
+		var data3 = []byte(fmt.Sprintf(`
+		{
+			"LibraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+			"AbsolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/%s_3.btw",
+			"PrintRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+			"Printer": "Godex G500",
+			"DataEntryControls": {
+				"SeriaInput": "%s"
+			}
+		}`, serialSlice, serial))
+		go PrintLocal(data3, channel3, &wg)
+		wg.Wait()
+	}
 
 	if errorText1 == "ok" && errorText2 == "ok" {
 		return nil

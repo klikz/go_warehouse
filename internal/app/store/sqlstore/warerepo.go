@@ -848,14 +848,15 @@ func (r *Repo) GetKeys() (interface{}, error) {
 
 	type Report struct {
 		Name     string `json:"name"`
+		Comment  string `json:"comment"`
 		Quantity int    `json:"quantity"`
 	}
 
 	rows, err := r.store.db.Query(`
-	select m."name", count(g.id) as quantity 
+	select m."name", m."comment", count(g.id) as quantity 
 	from gs g, models m  
 	where g.status = true and m.id = g.model 
-	group by m."name"`)
+	group by m."name", m."comment" `)
 	if err != nil {
 		return nil, err
 	}
@@ -866,7 +867,7 @@ func (r *Repo) GetKeys() (interface{}, error) {
 
 	for rows.Next() {
 		var key Report
-		if err := rows.Scan(&key.Name, &key.Quantity); err != nil {
+		if err := rows.Scan(&key.Name, &key.Comment, &key.Quantity); err != nil {
 			return nil, err
 		}
 		keys = append(keys, key)
