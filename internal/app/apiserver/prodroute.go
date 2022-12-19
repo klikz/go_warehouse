@@ -2,6 +2,7 @@ package apiserver
 
 import (
 	"encoding/base64"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"os"
@@ -571,6 +572,27 @@ func (s *Server) PackingSerialInput(c *gin.Context) {
 		return
 	}
 	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
+func (s *Server) CheckRemont(c *gin.Context) {
+	resp := models.Responce{}
+	serial := c.GetString("serial")
+
+	data, err := s.Store.Repo().CheckRemont(serial)
+	fmt.Println("data: ", data)
+	if err != nil {
+		s.Logger.Error("CheckRemont: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		resp.Data = data
+		c.JSON(200, resp)
+		return
+	}
+	resp.Result = "ok"
+
+	resp.Data = data
+
 	c.JSON(200, resp)
 }
 

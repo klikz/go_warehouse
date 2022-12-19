@@ -180,6 +180,34 @@ func CheckLaboratory(serial string) (string, error) {
 	// return "", nil
 }
 
+func (r *Repo) CheckRemont(serial string) (interface{}, error) {
+
+	type CheckRemont struct {
+		ID         int    `json:"id"`
+		Checkpoint string `json:"checkpoint"`
+		Defect     string `json:"defect"`
+		Time       string `json:"time"`
+	}
+	data := CheckRemont{}
+	if err := r.store.db.QueryRow(`
+	select r.id, c."name" as checkpoint, d.defect_name as defect, to_char(r."input", 'YYYY-MM-DD HH24-MI') as time
+	from remont r, checkpoints c, defects d 
+	where r.serial = $1
+	and r.status = 1
+	and c.id = r.checkpoint_id 
+	and d.id = r.defect_id 
+	`, serial).Scan(&data.ID, &data.Checkpoint, &data.Defect, &data.Time); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		} else {
+			return nil, err
+		}
+
+	}
+
+	return data, errors.New("remont tugallanmagan")
+}
+
 func PrintLocal(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
 	// logrus.Info("Print local")
 	defer wg.Done()
@@ -395,74 +423,146 @@ func (r *Repo) GetCounters() (interface{}, error) {
 		Laboratory_smena2 int `json:"laboratory_smena2"`
 		Packing_smena2    int `json:"packing_smena2"`
 	}
+	hours, _, _ := time.Now().Clock()
 	count := Count{}
 
-	err := r.store.db.QueryRow(`
-	select 
-	(select count(*) from production p 
-	where p.checkpoint_id = 9 
-	and p."time" >= current_date + INTERVAL '8 hours'
-	and p."time" <= current_date + INTERVAL '20 hours') as metall_smena1, 
-	(select count(*) from production p 
-	where p.checkpoint_id = 9 
-	and p."time" >= current_date + INTERVAL '20 hours'
-	and p."time" <= current_date + INTERVAL '32 hours') as metall_smena2, 
-	(select count(*) from production p 
-	where p.checkpoint_id = 2 
-	and p."time" >= current_date + INTERVAL '8 hours'
-	and p."time" <= current_date + INTERVAL '20 hours') as sborka_smena1, 
-	(select count(*) from production p 
-	where p.checkpoint_id = 2 
-	and p."time" >= current_date + INTERVAL '20 hours'
-	and p."time" <= current_date + INTERVAL '32 hours') as sborka_smena2, 
-	(select count(*) from production p 
-	where p.checkpoint_id = 10 
-	and p."time" >= current_date + INTERVAL '8 hours'
-	and p."time" <= current_date + INTERVAL '20 hours') as ppu_smena1, 
-	(select count(*) from production p 
-	where p.checkpoint_id = 10 
-	and p."time" >= current_date + INTERVAL '20 hours'
-	and p."time" <= current_date + INTERVAL '32 hours') as ppu_smena2, 
-	(select count(*) from production p 
-	where p.checkpoint_id = 19 
-	and p."time" >= current_date + INTERVAL '8 hours'
-	and p."time" <= current_date + INTERVAL '20 hours') as agregat_smena1, 
-	(select count(*) from production p 
-	where p.checkpoint_id = 19 
-	and p."time" >= current_date + INTERVAL '20 hours'
-	and p."time" <= current_date + INTERVAL '32 hours') as agregat_smena2, 
-	(select count(*) from galileo p 
-	where p."time" >= current_date + INTERVAL '8 hours'
-	and p."time" <= current_date + INTERVAL '20 hours') as freon_smena1, 
-	(select count(*) from galileo p 
-	where p."time" >= current_date + INTERVAL '20 hours'
-	and p."time" <= current_date + INTERVAL '32 hours') as freon_smena2, 
-	(select count(*) from production p 
-	where p.checkpoint_id = 11 
-	and p."time" >= current_date + INTERVAL '8 hours'
-	and p."time" <= current_date + INTERVAL '20 hours') as laboratory_smena1, 
-	(select count(*) from production p 
-	where p.checkpoint_id = 11 
-	and p."time" >= current_date + INTERVAL '20 hours'
-	and p."time" <= current_date + INTERVAL '32 hours') as laboratory_smena2, 
-	(select count(*) from packing p 
-	where p."time" >= current_date + INTERVAL '8 hours'
-	and p."time" <= current_date + INTERVAL '20 hours') as packing_smena1, 
-	(select count(*) from packing p 
-	where p."time" >= current_date + INTERVAL '20 hours'
-	and p."time" <= current_date + INTERVAL '32 hours') as packing_smena2
+	if hours >= 0 && hours < 8 {
+		err := r.store.db.QueryRow(`
+		select 
+		(select count(*) from production p 
+		where p.checkpoint_id = 9 
+		and p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours') as metall_smena1, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 9 
+		and p."time" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '32 hours') as metall_smena2, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 2 
+		and p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours') as sborka_smena1, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 2 
+		and p."time" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '8 hours') as sborka_smena2, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 10 
+		and p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours') as ppu_smena1, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 10 
+		and p."time" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '8 hours') as ppu_smena2, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 19 
+		and p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours') as agregat_smena1, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 19 
+		and p."time" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '8 hours') as agregat_smena2, 
+		(select count(*) from galileo p 
+		where p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours') as freon_smena1, 
+		(select count(*) from galileo p 
+		where p."time" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '8 hours') as freon_smena2, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 11 
+		and p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours') as laboratory_smena1, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 11 
+		and p."time" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '8 hours') as laboratory_smena2, 
+		(select count(*) from packing p 
+		where p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours') as packing_smena1, 
+		(select count(*) from packing p 
+		where p."time" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '8 hours') as packing_smena2
 	`).Scan(&count.Metall_smena1, &count.Metall_smena2,
-		&count.Sborka_smena1, &count.Sborka_smena2,
-		&count.Ppu_smena1, &count.Ppu_smena2,
-		&count.Agregat_smena1, &count.Agregat_smena2,
-		&count.Freon_smena1, &count.Freon_smena2,
-		&count.Laboratory_smena1, &count.Laboratory_smena2,
-		&count.Packing_smena1, &count.Packing_smena2)
-	if err != nil {
-		return count, err
+			&count.Sborka_smena1, &count.Sborka_smena2,
+			&count.Ppu_smena1, &count.Ppu_smena2,
+			&count.Agregat_smena1, &count.Agregat_smena2,
+			&count.Freon_smena1, &count.Freon_smena2,
+			&count.Laboratory_smena1, &count.Laboratory_smena2,
+			&count.Packing_smena1, &count.Packing_smena2)
+		if err != nil {
+			return count, err
+		}
+
+		return count, nil
+
+	} else {
+		err := r.store.db.QueryRow(`
+		select 
+		(select count(*) from production p 
+		where p.checkpoint_id = 9 
+		and p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours') as metall_smena1, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 9 
+		and p."time" >= current_date + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '32 hours') as metall_smena2, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 2 
+		and p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours') as sborka_smena1, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 2 
+		and p."time" >= current_date + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '32 hours') as sborka_smena2, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 10 
+		and p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours') as ppu_smena1, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 10 
+		and p."time" >= current_date + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '32 hours') as ppu_smena2, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 19 
+		and p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours') as agregat_smena1, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 19 
+		and p."time" >= current_date + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '32 hours') as agregat_smena2, 
+		(select count(*) from galileo p 
+		where p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours') as freon_smena1, 
+		(select count(*) from galileo p 
+		where p."time" >= current_date + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '32 hours') as freon_smena2, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 11 
+		and p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours') as laboratory_smena1, 
+		(select count(*) from production p 
+		where p.checkpoint_id = 11 
+		and p."time" >= current_date + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '32 hours') as laboratory_smena2, 
+		(select count(*) from packing p 
+		where p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours') as packing_smena1, 
+		(select count(*) from packing p 
+		where p."time" >= current_date + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '32 hours') as packing_smena2
+		`).Scan(&count.Metall_smena1, &count.Metall_smena2,
+			&count.Sborka_smena1, &count.Sborka_smena2,
+			&count.Ppu_smena1, &count.Ppu_smena2,
+			&count.Agregat_smena1, &count.Agregat_smena2,
+			&count.Freon_smena1, &count.Freon_smena2,
+			&count.Laboratory_smena1, &count.Laboratory_smena2,
+			&count.Packing_smena1, &count.Packing_smena2)
+		if err != nil {
+			return count, err
+		}
+
+		return count, nil
 	}
 
-	return count, nil
 }
 
 func (r *Repo) GetDefectCounters() (interface{}, error) {
@@ -500,24 +600,45 @@ func (r *Repo) GetToday(line int) (interface{}, error) {
 		Smena1 int `json:"smena1"`
 		Smena2 int `json:"smena2"`
 	}
+	hours, _, _ := time.Now().Clock()
 	count := Count{}
-	err := r.store.db.QueryRow(`
-	select (select count(*)  as smena1 from production p 
-	where p.checkpoint_id = $1
-	and p."time" >= current_date + INTERVAL '8 hours'
-	and p."time" <= current_date + INTERVAL '20 hours'
-	),
-	(select count(*)  as smena2 from production p 
-	where p.checkpoint_id = $1
-	and p."time" >= current_date + INTERVAL '20 hours'
-	and p."time" <= current_date + INTERVAL '32 hours'
-	)
-	`, line).Scan(&count.Smena1, &count.Smena2)
-	if err != nil {
-		return count, err
+
+	if hours >= 0 && hours < 8 {
+		err := r.store.db.QueryRow(`
+		select (select count(*)  as smena1 from production p 
+		where p.checkpoint_id = $1
+		and p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours'
+		),
+		(select count(*)  as smena2 from production p 
+		where p.checkpoint_id = $1
+		and p."time" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '8 hours')
+		`, line).Scan(&count.Smena1, &count.Smena2)
+		if err != nil {
+			return count, err
+		}
+
+		return count, nil
+	} else {
+		err := r.store.db.QueryRow(`
+		select (select count(*)  as smena1 from production p 
+		where p.checkpoint_id = $1
+		and p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours'
+		),
+		(select count(*)  as smena2 from production p 
+		where p.checkpoint_id = $1
+		and p."time" >= current_date + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '32 hours')
+		`, line).Scan(&count.Smena1, &count.Smena2)
+		if err != nil {
+			return count, err
+		}
+
+		return count, nil
 	}
 
-	return count, nil
 }
 
 func (r *Repo) GetTodayModels(line int) (interface{}, error) {
@@ -662,20 +783,39 @@ func (r *Repo) GetPackingToday() (interface{}, error) {
 		Smena2 int `json:"smena2"`
 	}
 	var last PackingToday
-	err := r.store.db.QueryRow(`
-	select (select count(*)  as smena1 from packing p 
-	where p."time" >= current_date + INTERVAL '8 hours'
-	and p."time" <= current_date + INTERVAL '20 hours'
-	),
-	(select count(*)  as smena2 from packing p 
-	where p."time" >= current_date + INTERVAL '20 hours'
-	and p."time" <= current_date + INTERVAL '32 hours'
-	)
-	`).Scan(&last.Smena1, &last.Smena2)
-	if err != nil {
-		return nil, err
+	hours, _, _ := time.Now().Clock()
+
+	if hours >= 0 && hours < 8 {
+		err := r.store.db.QueryRow(`
+		select (select count(*)  as smena1 from packing p 
+		where p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours'
+		),
+		(select count(*)  as smena2 from packing p 
+		where p."time" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '8 hours')
+		`).Scan(&last.Smena1, &last.Smena2)
+		if err != nil {
+			return nil, err
+		}
+		return last, nil
+	} else {
+		err := r.store.db.QueryRow(`
+		select (select count(*)  as smena1 from packing p 
+		where p."time" >= current_date + INTERVAL '8 hours'
+		and p."time" <= current_date + INTERVAL '18 hours'
+		),
+		(select count(*)  as smena2 from packing p 
+		where p."time" >= current_date + INTERVAL '18 hours'
+		and p."time" <= current_date + INTERVAL '32 hours'
+		)
+		`).Scan(&last.Smena1, &last.Smena2)
+		if err != nil {
+			return nil, err
+		}
+		return last, nil
 	}
-	return last, nil
+
 }
 
 func (r *Repo) GetPackingTodaySerial() (interface{}, error) {
@@ -1287,14 +1427,17 @@ func (r *Repo) SerialInput(line int, serial string) error {
 
 		res, err := CheckLaboratory(serial)
 		if err != nil {
-			return errors.New("check laboratory err")
+			_, err := setPin("0", modelInfo.address)
+			if err != nil {
+				return err
+			}
+			return errors.New("laboratoriyada muammo")
 		}
 		s := string(res)
 		data := Laboratory{}
 		json.Unmarshal([]byte(s), &data)
 		logrus.Info("laboratory: ", data.Result)
 		if data.Result != "Good" {
-			logrus.Info("Not Good")
 			_, err := setPin("0", modelInfo.address)
 			if err != nil {
 				return err
@@ -1302,7 +1445,6 @@ func (r *Repo) SerialInput(line int, serial string) error {
 			return errors.New("laboratoriyada muammo")
 		}
 		if data.Result == "No data" {
-			logrus.Info("No Data")
 			_, err := setPin("0", modelInfo.address)
 			if err != nil {
 				return err

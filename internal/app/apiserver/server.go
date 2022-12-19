@@ -150,6 +150,7 @@ func (s *Server) configureRouter() {
 		production.POST("/models", s.Models)                                // {}
 		production.POST("/metall/serial", s.MetallSerial)                   // {"id", int}
 		production.POST("/logistics", s.ProductionLogistics)                // {"line":int, "checkpoint_id":int, "serial": string}  //line-> income, checkpoint->outcome
+		production.POST("/check_remont", s.CheckRemont)                     // {"serial": string}
 		// production.POST("/galileo/tcp", s.GalileoTCP)                      // {"id", int}
 	}
 	s.Router.POST("galileo/input", s.GalileoInput)
