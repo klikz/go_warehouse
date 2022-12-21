@@ -436,7 +436,7 @@ func (r *Repo) GetCounters() (interface{}, error) {
 		(select count(*) from production p 
 		where p.checkpoint_id = 9 
 		and p."time" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
-		and p."time" <= current_date + INTERVAL '32 hours') as metall_smena2, 
+		and p."time" <= current_date + INTERVAL '8 hours') as metall_smena2, 
 		(select count(*) from production p 
 		where p.checkpoint_id = 2 
 		and p."time" >= current_date + INTERVAL '8 hours'
@@ -568,28 +568,204 @@ func (r *Repo) GetCounters() (interface{}, error) {
 func (r *Repo) GetDefectCounters() (interface{}, error) {
 
 	type DefectsCount struct {
-		Metall     int `json:"metall"`
-		Sborka     int `json:"sborka"`
-		Ppu        int `json:"ppu"`
-		Agregat    int `json:"agregat"`
-		Freon      int `json:"freon"`
-		Laboratory int `json:"laboratory"`
-		Packing    int `json:"packing"`
+		Metall_smena1     int `json:"metall_smena1"`
+		Metall_smena2     int `json:"metall_smena2"`
+		Sborka_smena1     int `json:"sborka_smena1"`
+		Sborka_smena2     int `json:"sborka_smena2"`
+		Ppu_smena1        int `json:"ppu_smena1"`
+		Ppu_smena2        int `json:"ppu_smena2"`
+		Agregat_smena1    int `json:"agregat_smena1"`
+		Agregat_smena2    int `json:"agregat_smena2"`
+		Freon_smena1      int `json:"freon_smena1"`
+		Freon_smena2      int `json:"freon_smena2"`
+		Laboratory_smena1 int `json:"laboratory_smena1"`
+		Laboratory_smena2 int `json:"laboratory_smena2"`
+		Packing_smena1    int `json:"packing_smena1"`
+		Packing_smena2    int `json:"packing_smena2"`
 	}
 	count := DefectsCount{}
+	hours, _, _ := time.Now().Clock()
+	if hours >= 0 && hours < 8 {
+		err := r.store.db.QueryRow(`
+		select 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 9 
+		and p."input" >= current_date + INTERVAL '8 hours'
+		and p."input" <= current_date + INTERVAL '18 hours'
+		and p.status = 1) as metall_smena1, 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 9 
+		and p."input" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."input" <= current_date + INTERVAL '8 hours'
+		and p.status = 1) as metall_smena2,
+		(select count(*) from remont p 
+		where p.checkpoint_id = 2 
+		and p."input" >= current_date + INTERVAL '8 hours'
+		and p."input" <= current_date + INTERVAL '18 hours'
+		and p.status = 1) as sborka_smena1, 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 2 
+		and p."input" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."input" <= current_date + INTERVAL '8 hours'
+		and p.status = 1) as sborka_smena2,
+		(select count(*) from remont p 
+		where p.checkpoint_id = 10 
+		and p."input" >= current_date + INTERVAL '8 hours'
+		and p."input" <= current_date + INTERVAL '18 hours'
+		and p.status = 1) as ppu_smena1, 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 10 
+		and p."input" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."input" <= current_date + INTERVAL '8 hours'
+		and p.status = 1) as ppu_smena2,
+		(select count(*) from remont p 
+		where p.checkpoint_id = 19 
+		and p."input" >= current_date + INTERVAL '8 hours'
+		and p."input" <= current_date + INTERVAL '18 hours'
+		and p.status = 1) as agregat_smena1, 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 19 
+		and p."input" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."input" <= current_date + INTERVAL '8 hours'
+		and p.status = 1) as agregat_smena2,
+		(select count(*) from remont p 
+		where p.checkpoint_id = 12 
+		and p."input" >= current_date + INTERVAL '8 hours'
+		and p."input" <= current_date + INTERVAL '18 hours'
+		and p.status = 1) as freon_smena1, 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 12 
+		and p."input" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."input" <= current_date + INTERVAL '8 hours'
+		and p.status = 1) as freon_smena2,
+		(select count(*) from remont p 
+		where p.checkpoint_id = 11 
+		and p."input" >= current_date + INTERVAL '8 hours'
+		and p."input" <= current_date + INTERVAL '18 hours'
+		and p.status = 1) as laboratory_smena1, 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 11 
+		and p."input" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."input" <= current_date + INTERVAL '8 hours'
+		and p.status = 1) as laboratory_smena2,
+		(select count(*) from remont p 
+		where p.checkpoint_id = 13 
+		and p."input" >= current_date + INTERVAL '8 hours'
+		and p."input" <= current_date + INTERVAL '18 hours'
+		and p.status = 1) as packing_smena1, 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 13 
+		and p."input" >= current_date - INTERVAL '1 day' + INTERVAL '18 hours'
+		and p."input" <= current_date + INTERVAL '8 hours'
+		and p.status = 1) as packing_smena2
+		`).Scan(&count.Metall_smena1, &count.Metall_smena2,
+			&count.Sborka_smena1, &count.Sborka_smena2,
+			&count.Ppu_smena1, &count.Ppu_smena2,
+			&count.Agregat_smena1, &count.Agregat_smena2,
+			&count.Freon_smena1, &count.Freon_smena2,
+			&count.Laboratory_smena1, &count.Laboratory_smena2,
+			&count.Packing_smena1, &count.Packing_smena2)
+		if err != nil {
+			return count, err
+		}
 
-	err := r.store.db.QueryRow(`
-	select (select count(*) from remont p where p.checkpoint_id = 9 and p."input" >= current_date) as metall_defect, 
-	(select count(*) from remont p where p.checkpoint_id = 2 and p."input" >= current_date) as sborka_defect,
-	(select count(*) from remont p where p.checkpoint_id = 10 and p."input" >= current_date) as ppu_defect,
-	(select count(*) from remont p where p.checkpoint_id = 19 and p."input" >= current_date) as agregat_defect,
-	(select count(*) from remont p where p.checkpoint_id = 12 and p."input" >= current_date) as freon_defect,
-	(select count(*) from remont p where p.checkpoint_id = 11 and p."input" >= current_date) as laboratory_defect,
-	(select count(*) from remont p where p.checkpoint_id = 13 and p."input" >= current_date) as packing_defect
-	`).Scan(&count.Metall, &count.Sborka, &count.Ppu, &count.Agregat, &count.Freon, &count.Laboratory, &count.Packing)
-	if err != nil {
-		return count, err
+	} else {
+		err := r.store.db.QueryRow(`
+		select 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 9 
+		and p."input" >= current_date + INTERVAL '8 hours'
+		and p."input" <= current_date + INTERVAL '18 hours'
+		and p.status = 1) as metall_smena1, 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 9 
+		and p."input" >= current_date + INTERVAL '18 hours'
+		and p."input" <= current_date + INTERVAL '32 hours'
+		and p.status = 1) as metall_smena2,
+		(select count(*) from remont p 
+		where p.checkpoint_id = 2 
+		and p."input" >= current_date + INTERVAL '8 hours'
+		and p."input" <= current_date + INTERVAL '18 hours'
+		and p.status = 1) as sborka_smena1, 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 2 
+		and p."input" >= current_date + INTERVAL '18 hours'
+		and p."input" <= current_date + INTERVAL '32 hours'
+		and p.status = 1) as sborka_smena2,
+		(select count(*) from remont p 
+		where p.checkpoint_id = 10 
+		and p."input" >= current_date + INTERVAL '8 hours'
+		and p."input" <= current_date + INTERVAL '18 hours'
+		and p.status = 1) as ppu_smena1, 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 10 
+		and p."input" >= current_date + INTERVAL '18 hours'
+		and p."input" <= current_date + INTERVAL '32 hours'
+		and p.status = 1) as ppu_smena2,
+		(select count(*) from remont p 
+		where p.checkpoint_id = 19 
+		and p."input" >= current_date + INTERVAL '8 hours'
+		and p."input" <= current_date + INTERVAL '18 hours'
+		and p.status = 1) as agregat_smena1, 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 19 
+		and p."input" >= current_date + INTERVAL '18 hours'
+		and p."input" <= current_date + INTERVAL '32 hours'
+		and p.status = 1) as agregat_smena2,
+		(select count(*) from remont p 
+		where p.checkpoint_id = 12 
+		and p."input" >= current_date + INTERVAL '8 hours'
+		and p."input" <= current_date + INTERVAL '18 hours'
+		and p.status = 1) as freon_smena1, 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 12 
+		and p."input" >= current_date + INTERVAL '18 hours'
+		and p."input" <= current_date + INTERVAL '32 hours'
+		and p.status = 1) as freon_smena2,
+		(select count(*) from remont p 
+		where p.checkpoint_id = 11 
+		and p."input" >= current_date + INTERVAL '8 hours'
+		and p."input" <= current_date + INTERVAL '18 hours'
+		and p.status = 1) as laboratory_smena1, 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 11 
+		and p."input" >= current_date + INTERVAL '18 hours'
+		and p."input" <= current_date + INTERVAL '32 hours'
+		and p.status = 1) as laboratory_smena2,
+		(select count(*) from remont p 
+		where p.checkpoint_id = 13 
+		and p."input" >= current_date + INTERVAL '8 hours'
+		and p."input" <= current_date + INTERVAL '18 hours'
+		and p.status = 1) as packing_smena1, 
+		(select count(*) from remont p 
+		where p.checkpoint_id = 13 
+		and p."input" >= current_date + INTERVAL '18 hours'
+		and p."input" <= current_date + INTERVAL '32 hours'
+		and p.status = 1) as packing_smena2
+		`).Scan(&count.Metall_smena1, &count.Metall_smena2,
+			&count.Sborka_smena1, &count.Sborka_smena2,
+			&count.Ppu_smena1, &count.Ppu_smena2,
+			&count.Agregat_smena1, &count.Agregat_smena2,
+			&count.Freon_smena1, &count.Freon_smena2,
+			&count.Laboratory_smena1, &count.Laboratory_smena2,
+			&count.Packing_smena1, &count.Packing_smena2)
+		if err != nil {
+			return count, err
+		}
 	}
+
+	// err := r.store.db.QueryRow(`
+	// //select (select count(*) from remont p where p.checkpoint_id = 9 and p."input" >= current_date) as metall_defect,
+	// //(select count(*) from remont p where p.checkpoint_id = 2 and p."input" >= current_date) as sborka_defect,
+	// //(select count(*) from remont p where p.checkpoint_id = 10 and p."input" >= current_date) as ppu_defect,
+	// //(select count(*) from remont p where p.checkpoint_id = 19 and p."input" >= current_date) as agregat_defect,
+	// //(select count(*) from remont p where p.checkpoint_id = 12 and p."input" >= current_date) as freon_defect,
+	// //(select count(*) from remont p where p.checkpoint_id = 11 and p."input" >= current_date) as laboratory_defect,
+	// //(select count(*) from remont p where p.checkpoint_id = 13 and p."input" >= current_date) as packing_defect
+	// `).Scan(&count.Metall, &count.Sborka, &count.Ppu, &count.Agregat, &count.Freon, &count.Laboratory, &count.Packing)
+	// if err != nil {
+	// 	return count, err
+	// }
 
 	return count, nil
 }
