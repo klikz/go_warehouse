@@ -824,33 +824,94 @@ func (r *Repo) GetTodayModels(line int) (interface{}, error) {
 		Name     string `json:"name"`
 		Count    string `json:"count"`
 	}
+	hours, _, _ := time.Now().Clock()
+	if hours >= 8 && hours < 18 {
+		rows, err := r.store.db.Query(`
+		select p.model_id, m."name", COUNT(*) FROM production p, models m 
+		where p.checkpoint_id = $1 
+		and p."time" >= current_date + interval '8 hours' 
+		and p."time" <= current_date + interval '18 hours'
+		and m.id = p.model_id group by m."name", p.model_id order by m."name"`, line)
+		if err != nil {
+			return nil, err
+		}
 
-	currentTime := time.Now()
+		defer rows.Close()
+		var byModel []ByModel
 
-	rows, err := r.store.db.Query(`
-	select p.model_id, m."name", COUNT(*) FROM production p, models m 
-	where p.checkpoint_id = $1 and p."time"::date>=to_date($2, 'YYYY-MM-DD') 
-	and m.id = p.model_id group by m."name", p.model_id order by m."name"`, line, currentTime)
-	if err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
-	var byModel []ByModel
-
-	for rows.Next() {
-		var comp ByModel
-		if err := rows.Scan(&comp.Model_id,
-			&comp.Name,
-			&comp.Count); err != nil {
+		for rows.Next() {
+			var comp ByModel
+			if err := rows.Scan(&comp.Model_id,
+				&comp.Name,
+				&comp.Count); err != nil {
+				return byModel, err
+			}
+			byModel = append(byModel, comp)
+		}
+		if err = rows.Err(); err != nil {
 			return byModel, err
 		}
-		byModel = append(byModel, comp)
+		return byModel, nil
+
+	} else {
+		if hours >= 0 && hours < 8 {
+			rows, err := r.store.db.Query(`
+			select p.model_id, m."name", COUNT(*) FROM production p, models m 
+			where p.checkpoint_id = $1 
+			and p."time" >= current_date - interval '1 day' + interval '18 hours' 
+			and p."time" <= current_date + interval '8 hours'
+			and m.id = p.model_id group by m."name", p.model_id order by m."name"
+			`, line)
+			if err != nil {
+				return nil, err
+			}
+
+			defer rows.Close()
+			var byModel []ByModel
+
+			for rows.Next() {
+				var comp ByModel
+				if err := rows.Scan(&comp.Model_id,
+					&comp.Name,
+					&comp.Count); err != nil {
+					return byModel, err
+				}
+				byModel = append(byModel, comp)
+			}
+			if err = rows.Err(); err != nil {
+				return byModel, err
+			}
+			return byModel, nil
+		} else {
+			rows, err := r.store.db.Query(`
+			select p.model_id, m."name", COUNT(*) FROM production p, models m 
+			where p.checkpoint_id = $1 
+			and p."time" >= current_date + interval '18 hours' 
+			and p."time" <= current_date + interval '32 hours'
+			and m.id = p.model_id group by m."name", p.model_id order by m."name"`, line)
+			if err != nil {
+				return nil, err
+			}
+
+			defer rows.Close()
+			var byModel []ByModel
+
+			for rows.Next() {
+				var comp ByModel
+				if err := rows.Scan(&comp.Model_id,
+					&comp.Name,
+					&comp.Count); err != nil {
+					return byModel, err
+				}
+				byModel = append(byModel, comp)
+			}
+			if err = rows.Err(); err != nil {
+				return byModel, err
+			}
+			return byModel, nil
+		}
 	}
-	if err = rows.Err(); err != nil {
-		return byModel, err
-	}
-	return byModel, nil
+
 }
 
 func (r *Repo) GetSectorBalance(line int) (interface{}, error) {
