@@ -85,35 +85,38 @@ func (s *Server) configureRouter() {
 	global := s.Router.Group("/api") //Route for global use
 	global.Use(s.CheckRole())
 	{
-		global.POST("/production/last", s.GetLast)                                 // {"line": int, "token": string}
-		global.POST("/production/status", s.GetStatus)                             // {"line": int, "token": string}
-		global.POST("/production/today", s.GetToday)                               // {"line": int, "token": string}
-		global.POST("/production/today/models", s.GetTodayModels)                  // {"line": int, "token": string}
-		global.POST("/production/sector/balance", s.GetSectorBalance)              // {"line": int, "token": string}
-		global.POST("/production/packing/last", s.GetPackingLast)                  // {"token": string}
-		global.POST("/production/packing/today", s.GetPackingToday)                // {"token": string}
-		global.POST("/production/packing/today/serial", s.GetPackingTodaySerial)   // {"token": string}
-		global.POST("/production/packing/today/models", s.GetPackingTodayModels)   // {"token": string}
-		global.POST("/production/lines", s.GetLines)                               // {"token": string}
-		global.POST("/production/defects/types", s.GetDefectsTypes)                // {"token": string}
-		global.POST("/production/defects/types/delete", s.DeleteDefectsTypes)      // {"id": int,"token": string}
-		global.POST("/production/defects/types/add", s.AddDefectsTypes)            // {"id": int,"token": string}
-		global.POST("/production/defects/add", s.AddDefects)                       // {"serial": string, "checkpoint_id": int, "defect_id": int, "token": string}
-		global.POST("/production/defects/last", s.Last3Defects)                    // {"serial": string, "checkpoint_id": int, "defect_id": int, "token": string}
-		global.POST("/production/report/bydate/models/serial", s.GetByDateSerial)  // {"date1": string, "date2": string, "line": int, "token": string}
-		global.POST("/production/report/bydate", s.GetCountByDate)                 // {"date1": string, "date2": string, "line": int, "token": string}
-		global.POST("/production/report/bydate/models", s.GetByDateModels)         // {"date1": string, "date2": string, "line": int, "token": string}
-		global.POST("/production/report/remont", s.GetRemont)                      // {"token": string}
-		global.POST("/production/report/remont/today", s.GetRemontToday)           // {"token": string}
-		global.POST("/production/report/remont/bydate", s.GetRemontByDate)         // {"date1": string, "date2": string, "token": string}
-		global.POST("/production/report/remont/update", s.UpdateRemont)            // {"name": string, "id": int, "token": string} id-> defect id
-		global.POST("/production/report/remont/repairedcount", s.GetRepairedCount) // {"name": string, "id": int, "token": string} id-> defect id
-		global.POST("/production/serial/info", s.GetInfoBySerial)                  // {"serial": string, "token": string}
-		global.POST("/production/galileo/todaymodels", s.GalileoTodayModels)       // {"token": string}
-		global.POST("/users/register", s.Create)                                   // {"email":string, "password":string,"token": string}
-		global.POST("/production/today/statistics", s.TodayStatistics)             // {"token": string}
-		global.POST("/production/plan/today", s.GetPlan)                           // {"token": string}
-		global.POST("/ware/components/outcome", s.GetAllComponentsOutCome)         // {"token": string}
+		global.POST("/production/last", s.GetLast)                                  // {"line": int, "token": string}
+		global.POST("/production/status", s.GetStatus)                              // {"line": int, "token": string}
+		global.POST("/production/today", s.GetToday)                                // {"line": int, "token": string}
+		global.POST("/production/today/models", s.GetTodayModels)                   // {"line": int, "token": string}
+		global.POST("/production/sector/balance", s.GetSectorBalance)               // {"line": int, "token": string}
+		global.POST("/production/packing/last", s.GetPackingLast)                   // {"token": string}
+		global.POST("/production/packing/today", s.GetPackingToday)                 // {"token": string}
+		global.POST("/production/packing/today/serial", s.GetPackingTodaySerial)    // {"token": string}
+		global.POST("/production/packing/today/models", s.GetPackingTodayModels)    // {"token": string}
+		global.POST("/production/lines", s.GetLines)                                // {"token": string}
+		global.POST("/production/defects/types", s.GetDefectsTypes)                 // {"token": string}
+		global.POST("/production/defects/types/delete", s.DeleteDefectsTypes)       // {"id": int,"token": string}
+		global.POST("/production/defects/types/add", s.AddDefectsTypes)             // {"id": int,"token": string}
+		global.POST("/production/defects/add", s.AddDefects)                        // {"serial": string, "checkpoint_id": int, "defect_id": int, "token": string}
+		global.POST("/production/defects/last", s.Last3Defects)                     // {"serial": string, "checkpoint_id": int, "defect_id": int, "token": string}
+		global.POST("/production/report/bydate/models/serial", s.GetByDateSerial)   // {"date1": string, "date2": string, "line": int, "token": string}
+		global.POST("/production/report/byhours/models/serial", s.GetByHoursSerial) // {"date1": string, "date2": string, "line": int, "token": string}
+		global.POST("/production/report/bydate", s.GetCountByDate)                  // {"date1": string, "date2": string, "line": int, "token": string}
+		global.POST("/production/report/byhours", s.GetCountByHours)                // {"date1": string, "date2": string, "line": int, "token": string}
+		global.POST("/production/report/bydate/models", s.GetByDateModels)          // {"date1": string, "date2": string, "line": int, "token": string}
+		global.POST("/production/report/byhours/models", s.GetByHoursModels)        // {"date1": string, "date2": string, "line": int, "token": string}
+		global.POST("/production/report/remont", s.GetRemont)                       // {"token": string}
+		global.POST("/production/report/remont/today", s.GetRemontToday)            // {"token": string}
+		global.POST("/production/report/remont/bydate", s.GetRemontByDate)          // {"date1": string, "date2": string, "token": string}
+		global.POST("/production/report/remont/update", s.UpdateRemont)             // {"name": string, "id": int, "token": string} id-> defect id
+		global.POST("/production/report/remont/repairedcount", s.GetRepairedCount)  // {"name": string, "id": int, "token": string} id-> defect id
+		global.POST("/production/serial/info", s.GetInfoBySerial)                   // {"serial": string, "token": string}
+		global.POST("/production/galileo/todaymodels", s.GalileoTodayModels)        // {"token": string}
+		global.POST("/users/register", s.Create)                                    // {"email":string, "password":string,"token": string}
+		global.POST("/production/today/statistics", s.TodayStatistics)              // {"token": string}
+		global.POST("/production/plan/today", s.GetPlan)                            // {"token": string}
+		global.POST("/ware/components/outcome", s.GetAllComponentsOutCome)          // {"token": string}
 
 	}
 

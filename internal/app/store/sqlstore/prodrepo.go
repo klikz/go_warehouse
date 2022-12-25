@@ -825,7 +825,7 @@ func (r *Repo) GetTodayModels(line int) (interface{}, error) {
 		Count    string `json:"count"`
 	}
 	hours, _, _ := time.Now().Clock()
-	if hours >= 8 && hours < 18 {
+	if hours >= 8 && hours <= 18 {
 		rows, err := r.store.db.Query(`
 		select p.model_id, m."name", COUNT(*) FROM production p, models m 
 		where p.checkpoint_id = $1 
@@ -1094,27 +1094,99 @@ func (r *Repo) GetPackingTodayModels() (interface{}, error) {
 		Name     string `json:"name"`
 		Count    int    `json:"count"`
 	}
-	currentTime := time.Now()
-	rows, err := r.store.db.Query(`
-	select p.model_id, m."name", COUNT(*) FROM packing p, models m 
-	where p."time"::date>=to_date($1, 'YYYY-MM-DD') and m.id = p.model_id group by m."name", p.model_id order by m."name" `, currentTime)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var last []PackingTodayModels
-	for rows.Next() {
-		var comp PackingTodayModels
-		if err := rows.Scan(&comp.Model_id, &comp.Name, &comp.Count); err != nil {
+
+	hours, _, _ := time.Now().Clock()
+
+	if hours >= 8 && hours <= 18 {
+		rows, err := r.store.db.Query(`		
+		select p.model_id, m."name", COUNT(*) 
+		FROM packing p, models m 
+		where p."time" >= current_date + interval '8 hours' 
+		and p."time" <= current_date + interval '18 hours'
+		and m.id = p.model_id 
+		group by m."name", p.model_id order by m."name" 
+		`)
+		if err != nil {
 			return nil, err
 		}
-		last = append(last, comp)
-	}
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
 
-	return last, nil
+		defer rows.Close()
+		var byModel []PackingTodayModels
+
+		for rows.Next() {
+			var comp PackingTodayModels
+			if err := rows.Scan(&comp.Model_id,
+				&comp.Name,
+				&comp.Count); err != nil {
+				return byModel, err
+			}
+			byModel = append(byModel, comp)
+		}
+		if err = rows.Err(); err != nil {
+			return byModel, err
+		}
+		return byModel, nil
+
+	} else {
+		if hours >= 0 && hours < 8 {
+			rows, err := r.store.db.Query(`
+			select p.model_id, m."name", COUNT(*) 
+			FROM packing p, models m 
+			where p."time" >= current_date - interval '1 day' + interval '18 hours' 
+			and p."time" <= current_date + interval '8 hours'
+			and m.id = p.model_id 
+			group by m."name", p.model_id order by m."name" 
+			`)
+			if err != nil {
+				return nil, err
+			}
+
+			defer rows.Close()
+			var byModel []PackingTodayModels
+
+			for rows.Next() {
+				var comp PackingTodayModels
+				if err := rows.Scan(&comp.Model_id,
+					&comp.Name,
+					&comp.Count); err != nil {
+					return byModel, err
+				}
+				byModel = append(byModel, comp)
+			}
+			if err = rows.Err(); err != nil {
+				return byModel, err
+			}
+			return byModel, nil
+		} else {
+			rows, err := r.store.db.Query(`
+			select p.model_id, m."name", COUNT(*) 
+			FROM packing p, models m 
+			where p."time" >= current_date + interval '18 hours' 
+			and p."time" <= current_date + interval '32 hours'
+			and m.id = p.model_id 
+			group by m."name", p.model_id order by m."name" 
+			`)
+			if err != nil {
+				return nil, err
+			}
+			defer rows.Close()
+			var byModel []PackingTodayModels
+
+			for rows.Next() {
+				var comp PackingTodayModels
+				if err := rows.Scan(&comp.Model_id,
+					&comp.Name,
+					&comp.Count); err != nil {
+					return byModel, err
+				}
+				byModel = append(byModel, comp)
+			}
+			if err = rows.Err(); err != nil {
+				return byModel, err
+			}
+			return byModel, nil
+		}
+	}
 }
 
 func (r *Repo) GetLines() (interface{}, error) {
@@ -1265,13 +1337,13 @@ func (r *Repo) GetByDateSerial(date1, date2 string) (interface{}, error) {
 	// rows, err := r.store.db.Query("(select p.serial, m.\"name\" as model, p.\"time\", c.\"name\" as sector  from packing p, models m, checkpoints c  where p.\"time\"::date>=to_date($1, 'YYYY-MM-DD') and p.\"time\"::date<=to_date($2, 'YYYY-MM-DD') and m.id = p.model_id and c.id = p.checkpoint_id  order by p.model_id) union ALL (select p2.serial, m.\"name\" as model, p2.\"time\", c.\"name\" as sector  from production p2, models m, checkpoints c where p2.\"time\"::date>=to_date($1, 'YYYY-MM-DD') and p2.\"time\"::date<=to_date($2, 'YYYY-MM-DD') and m.id = p2.model_id and c.id = p2.checkpoint_id order by p2.model_id, p2.checkpoint_id)", date1, date2)
 	rows, err := r.store.db.Query(`
 	(select p.serial, m."name" as model, to_char(p."time" , 'DD-MM-YYYY HH24:MI') "time" , c."name" as sector  from packing p, models m, checkpoints c
-	where p."time"::date>=to_date($1, 'YYYY-MM-DD') and p."time"::date<=to_date($2, 'YYYY-MM-DD') and m.id = p.model_id and c.id = p.checkpoint_id  order by p.model_id)
+	where p."time">=$1 and p."time"<=$2 and m.id = p.model_id and c.id = p.checkpoint_id  order by p.model_id)
 	union all
 	(select p.serial, m."name" as model, to_char(p."time" , 'DD-MM-YYYY HH24:MI') "time" , c."name" as sector  from galileo p, models m, checkpoints c
-	where p."time"::date>=to_date($3, 'YYYY-MM-DD') and p."time"::date<=to_date($4, 'YYYY-MM-DD') and m.id = p.model_id and c.id = p.checkpoint_id  order by p.model_id)
+	where p."time">=$3 and p."time"<=$4 and m.id = p.model_id and c.id = p.checkpoint_id  order by p.model_id)
 	union all
 	(select p2.serial, m."name" as model, to_char(p2."time" , 'DD-MM-YYYY HH24:MI') "time", c."name" as sector  from production p2, models m, checkpoints c
-	where p2."time"::date>=to_date($5, 'YYYY-MM-DD') and p2."time"::date<=to_date($6, 'YYYY-MM-DD') and m.id = p2.model_id and c.id = p2.checkpoint_id order by p2.model_id, p2.checkpoint_id)`,
+	where p2."time">=$ and p2."time"<=$6 and m.id = p2.model_id and c.id = p2.checkpoint_id order by p2.model_id, p2.checkpoint_id)`,
 		date1, date2, date1, date2, date1, date2)
 	if err != nil {
 		return nil, err
@@ -1318,6 +1390,70 @@ func (r *Repo) GetCountByDate(date1, date2 string, line int) (interface{}, error
 		rows, err := r.store.db.Query(`
 		select count(*) from production 
 		where "time"::date>=to_date($1, 'YYYY-MM-DD') and "time"::date<=to_date($2, 'YYYY-MM-DD') 
+		and checkpoint_id = $3`, date1, date2, line)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			if err := rows.Scan(&count.Count); err != nil {
+				return count, err
+			}
+		}
+		if err = rows.Err(); err != nil {
+			return count, err
+		}
+	}
+	return count, nil
+}
+
+func (r *Repo) GetCountByHours(date1, date2 string, line int) (interface{}, error) {
+
+	type Count struct {
+		Count int `json:"count"`
+	}
+	count := Count{}
+	switch line {
+	case 13:
+		rows, err := r.store.db.Query(`
+		select count(*) from packing p
+		where p."time">=$1
+		and p."time"<=$2`, date1, date2)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			if err := rows.Scan(&count.Count); err != nil {
+				return count, err
+			}
+		}
+		if err = rows.Err(); err != nil {
+			return count, err
+		}
+	case 12:
+		rows, err := r.store.db.Query(`
+		select count(*) from galileo p
+		where p."time">=$1
+		and p."time"<=$2`, date1, date2)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			if err := rows.Scan(&count.Count); err != nil {
+				return count, err
+			}
+		}
+		if err = rows.Err(); err != nil {
+			return count, err
+		}
+
+	default:
+		rows, err := r.store.db.Query(`
+		select count(*) from production p
+		where p."time">=$1
+		and p."time"<=$2 
 		and checkpoint_id = $3`, date1, date2, line)
 		if err != nil {
 			return nil, err
@@ -1401,6 +1537,93 @@ func (r *Repo) GetByDateModels(date1, date2 string, line int) (interface{}, erro
 		and m.id = p.model_id 
 		group by m."name", p.model_id`, date1, date2, line)
 		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var comp ByModel
+			if err := rows.Scan(&comp.Model_id,
+				&comp.Name,
+				&comp.Count); err != nil {
+				return byModel, err
+			}
+			byModel = append(byModel, comp)
+		}
+		if err = rows.Err(); err != nil {
+			return byModel, err
+		}
+	}
+	return byModel, nil
+}
+
+func (r *Repo) GetByHoursModels(date1, date2 string, line int) (interface{}, error) {
+
+	type ByModel struct {
+		Model_id int    `json:"model_id"`
+		Name     string `json:"name"`
+		Count    string `json:"count"`
+	}
+	var byModel []ByModel
+
+	switch line {
+	case 12:
+		rows, err := r.store.db.Query(`
+		select p.model_id, m."name", COUNT(*) FROM galileo p, models m 
+		where p."time">=$1
+		and p."time"<=$2
+		and m.id = p.model_id 
+		group by m."name", p.model_id`, date1, date2)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var comp ByModel
+			if err := rows.Scan(&comp.Model_id,
+				&comp.Name,
+				&comp.Count); err != nil {
+				return byModel, err
+			}
+			byModel = append(byModel, comp)
+		}
+		if err = rows.Err(); err != nil {
+			return byModel, err
+		}
+	case 13:
+		rows, err := r.store.db.Query(`
+		select p.model_id, m."name", COUNT(*) FROM packing p, models m 
+		where p."time">=$1
+		and p."time"<=$2		
+		and m.id = p.model_id 
+		group by m."name", p.model_id`, date1, date2)
+		if err != nil {
+			return nil, err
+		}
+
+		defer rows.Close()
+
+		for rows.Next() {
+			var comp ByModel
+			if err := rows.Scan(&comp.Model_id,
+				&comp.Name,
+				&comp.Count); err != nil {
+				return byModel, err
+			}
+			byModel = append(byModel, comp)
+		}
+		if err = rows.Err(); err != nil {
+			return byModel, err
+		}
+	default:
+		rows, err := r.store.db.Query(`
+		select p.model_id, m."name", COUNT(*) FROM production p, models m 
+		where p."time">=$1
+		and p."time"<=$2
+		and checkpoint_id = $3 
+		and m.id = p.model_id 
+		group by m."name", p.model_id`, date1, date2, line)
+		if err != nil {
+			fmt.Println(err)
 			return nil, err
 		}
 		defer rows.Close()
@@ -2180,33 +2403,125 @@ func (r *Repo) GalileoTodayModels() (interface{}, error) {
 		Count    string `json:"count"`
 	}
 
-	currentTime := time.Now()
+	hours, _, _ := time.Now().Clock()
 
-	rows, err := r.store.db.Query(`
-	select p.model_id, m."name", COUNT(*) FROM galileo p, models m 
-	where p."time"::date>=to_date($1, 'YYYY-MM-DD') 
-	and m.id = p.model_id 
-	group by m."name", p.model_id 
-	order by m."name" `, currentTime)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var byModel []ByModel
+	if hours >= 8 && hours <= 18 {
+		rows, err := r.store.db.Query(`		
+		select p.model_id, m."name", COUNT(*) FROM galileo p, models m 
+		where p."time" >= current_date + interval '8 hours' 
+		and p."time" <= current_date + interval '18 hours'
+		and m.id = p.model_id 
+		group by m."name", p.model_id 
+		order by m."name"
+		`)
+		if err != nil {
+			return nil, err
+		}
 
-	for rows.Next() {
-		var comp ByModel
-		if err := rows.Scan(&comp.Model_id,
-			&comp.Name,
-			&comp.Count); err != nil {
+		defer rows.Close()
+		var byModel []ByModel
+
+		for rows.Next() {
+			var comp ByModel
+			if err := rows.Scan(&comp.Model_id,
+				&comp.Name,
+				&comp.Count); err != nil {
+				return byModel, err
+			}
+			byModel = append(byModel, comp)
+		}
+		if err = rows.Err(); err != nil {
 			return byModel, err
 		}
-		byModel = append(byModel, comp)
+		return byModel, nil
+
+	} else {
+		if hours >= 0 && hours < 8 {
+			rows, err := r.store.db.Query(`
+			select p.model_id, m."name", COUNT(*) 
+			FROM packing p, models m 
+			where p."time" >= current_date - interval '1 day' + interval '18 hours' 
+			and p."time" <= current_date + interval '8 hours'
+			and m.id = p.model_id 
+			group by m."name", p.model_id order by m.
+			"name" 
+			`)
+			if err != nil {
+				return nil, err
+			}
+
+			defer rows.Close()
+			var byModel []ByModel
+
+			for rows.Next() {
+				var comp ByModel
+				if err := rows.Scan(&comp.Model_id,
+					&comp.Name,
+					&comp.Count); err != nil {
+					return byModel, err
+				}
+				byModel = append(byModel, comp)
+			}
+			if err = rows.Err(); err != nil {
+				return byModel, err
+			}
+			return byModel, nil
+		} else {
+			rows, err := r.store.db.Query(`
+			select p.model_id, m."name", COUNT(*) 
+			FROM packing p, models m 
+			where p."time" >= current_date + interval '18 hours' 
+			and p."time" <= current_date + interval '32 hours'
+			and m.id = p.model_id 
+			group by m."name", p.model_id order by m."name" 
+			`)
+			if err != nil {
+				return nil, err
+			}
+			defer rows.Close()
+			var byModel []ByModel
+
+			for rows.Next() {
+				var comp ByModel
+				if err := rows.Scan(&comp.Model_id,
+					&comp.Name,
+					&comp.Count); err != nil {
+					return byModel, err
+				}
+				byModel = append(byModel, comp)
+			}
+			if err = rows.Err(); err != nil {
+				return byModel, err
+			}
+			return byModel, nil
+		}
 	}
-	if err = rows.Err(); err != nil {
-		return byModel, err
-	}
-	return byModel, nil
+
+	// rows, err := r.store.db.Query(`
+	// select p.model_id, m."name", COUNT(*) FROM galileo p, models m
+	// where p."time"::date>=to_date($1, 'YYYY-MM-DD')
+	// and m.id = p.model_id
+	// group by m."name", p.model_id
+	// order by m."name" `)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// defer rows.Close()
+	// var byModel []ByModel
+
+	// for rows.Next() {
+	// 	var comp ByModel
+	// 	if err := rows.Scan(&comp.Model_id,
+	// 		&comp.Name,
+	// 		&comp.Count); err != nil {
+	// 		return byModel, err
+	// 	}
+	// 	byModel = append(byModel, comp)
+	// }
+	// if err = rows.Err(); err != nil {
+	// 	return byModel, err
+	// }
+	// return byModel, nil
 }
 
 func (r *Repo) Metall_Serial(id int) error {

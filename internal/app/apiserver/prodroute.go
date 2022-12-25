@@ -410,6 +410,24 @@ func (s *Server) GetByDateSerial(c *gin.Context) {
 	c.JSON(200, data)
 }
 
+func (s *Server) GetByHoursSerial(c *gin.Context) {
+	resp := models.Responce{}
+	temp, _ := c.Get("date1")
+	temp2, _ := c.Get("date2")
+	date1 := temp.(string)
+	date2 := temp2.(string)
+
+	data, err := s.Store.Repo().GetByDateSerial(date1, date2)
+	if err != nil {
+		s.Logger.Error("GetByDateSerial: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	c.JSON(200, data)
+}
+
 func (s *Server) GetCountByDate(c *gin.Context) {
 	resp := models.Responce{}
 	date1 := c.GetString("date1")
@@ -427,6 +445,22 @@ func (s *Server) GetCountByDate(c *gin.Context) {
 	c.JSON(200, data)
 }
 
+func (s *Server) GetCountByHours(c *gin.Context) {
+	resp := models.Responce{}
+	date1 := c.GetString("date1")
+	date2 := c.GetString("date2")
+	line := c.GetInt("line")
+
+	data, err := s.Store.Repo().GetCountByHours(date1, date2, line)
+	if err != nil {
+		s.Logger.Error("GetByDate: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	c.JSON(200, data)
+}
 func (s *Server) GetByDateModels(c *gin.Context) {
 	resp := models.Responce{}
 	temp, _ := c.Get("date1")
@@ -439,6 +473,23 @@ func (s *Server) GetByDateModels(c *gin.Context) {
 	data, err := s.Store.Repo().GetByDateModels(date1, date2, line)
 	if err != nil {
 		s.Logger.Error("GetByDateModels: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+	c.JSON(200, data)
+}
+
+func (s *Server) GetByHoursModels(c *gin.Context) {
+	resp := models.Responce{}
+	date1 := c.GetString("date1")
+	date2 := c.GetString("date2")
+	line := c.GetInt("line")
+
+	data, err := s.Store.Repo().GetByHoursModels(date1, date2, line)
+	if err != nil {
+		s.Logger.Error("GetByHoursModels: ", err)
 		resp.Result = "error"
 		resp.Err = "Wrong Credentials"
 		c.JSON(200, resp)

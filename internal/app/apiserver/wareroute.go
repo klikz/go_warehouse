@@ -64,9 +64,18 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 		return
 	}
 
-	allInfo.PpuModels, err = s.Store.Repo().GetTodayModels(19)
+	allInfo.PpuModels, err = s.Store.Repo().GetTodayModels(10)
 	if err != nil {
 		s.Logger.Error("allInfo.PpuModels: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		return
+	}
+
+	allInfo.AgregatModels, err = s.Store.Repo().GetTodayModels(19)
+	if err != nil {
+		s.Logger.Error("allInfo.AgregatModels: ", err)
 		resp.Result = "error"
 		resp.Err = "Wrong Credentials"
 		c.JSON(200, resp)
@@ -85,15 +94,6 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 	allInfo.LaboratoryModels, err = s.Store.Repo().GetTodayModels(11)
 	if err != nil {
 		s.Logger.Error("allInfo.LaboratoryModels: ", err)
-		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
-		c.JSON(200, resp)
-		return
-	}
-
-	allInfo.AgregatModels, err = s.Store.Repo().GetTodayModels(2)
-	if err != nil {
-		s.Logger.Error("allInfo.AgregatModels: ", err)
 		resp.Result = "error"
 		resp.Err = "Wrong Credentials"
 		c.JSON(200, resp)
