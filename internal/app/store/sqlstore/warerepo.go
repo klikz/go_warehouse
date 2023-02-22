@@ -9,16 +9,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (r *Repo) AktInput(account models.Akt) error {
-	if err := r.store.db.QueryRow(`select u.id  from users u where u.email = $1`, account.UserName).Scan(&account.UserID); err != nil {
+func (r *Repo) AktInput(account models.Akt, filename string) error {
+	if err := r.store.db.QueryRow(`select u.id from users u where u.email = $1`, account.UserName).Scan(&account.UserID); err != nil {
 		if err == sql.ErrNoRows {
 			return errors.New("sql.ErrNoRows")
 		}
 		return err
 	}
 
-	fmt.Println("account: ", account)
-	result, err := r.store.db.Exec(`insert into akt (component_id, user_id, "comment", quantity) values ($1, $2, $3, $4)`, &account.Component_id, &account.UserID, &account.Comment, &account.Quantity)
+	// fmt.Println("account: ", account)
+	result, err := r.store.db.Exec(`insert into akt (component_id, user_id, "comment", quantity, photo) values ($1, $2, $3, $4, $5)`, account.Component_id, account.UserID, account.Comment, account.Quantity, filename)
 	if err != nil {
 		logrus.Info("err: ", err)
 		return err
@@ -221,7 +221,7 @@ func (r *Repo) UpdateComponent(c *models.Component) error {
 	return nil
 }
 
-func (r *Repo) AddComponent(c *models.Component) error {
+func (r *Repo) AddComponent(c *models.Component) (int, error) {
 	logrus.Info("c.id: ", c.ID)
 	if c.ID > 0 {
 		rows, err := r.store.db.Query(`
@@ -236,23 +236,32 @@ func (r *Repo) AddComponent(c *models.Component) error {
 	weight = $8,
 	inner_code = $9
 	where id = $10
+	
 	`, c.Code, c.Name, c.Checkpoint_id, c.Unit, c.Photo, c.Specs, c.Type_id, c.Weight, c.InnerCode, c.ID)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		defer rows.Close()
-		return nil
+		return 0, nil
 	}
 
-	rows, err := r.store.db.Query(`
+	id := 0
+	err := r.store.db.QueryRow(`
 	insert into components 
 	(code, "name", "checkpoint", unit, specs, photo, "type", weight, inner_code) 
-	values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	`, c.Code, c.Name, c.Checkpoint_id, c.Unit, c.Specs, c.Photo, c.Type_id, c.Weight, c.InnerCode)
+	values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id
+	`, c.Code, c.Name, c.Checkpoint_id, c.Unit, c.Specs, c.Photo, c.Type_id, c.Weight, c.InnerCode).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+func (r *Repo) AddComponentComponentsIncome(id int) error {
+	_, err := r.store.db.Exec(`insert into component_income (component_id) values ($1)`, id)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 	return nil
 }
 
@@ -368,14 +377,14 @@ func (r *Repo) IncomeReport(date1, date2 string) (interface{}, error) {
 		Time     string  `json:"time"`
 	}
 	logrus.Info(fmt.Sprintf(`
-	select c.code, c."name", i.quantity, to_char(i."create", 'DD-MM-YYYY hh-mm') time from income i, components c 
+	select c.code, c."name", i.quantity, to_char(i."create", 'DD-MM-YYYY HH24-MI') time from income i, components c 
 	where 
 		i."create"::date>=to_date(%s, 'YYYY-MM-DD') 
 		and i."create"::date<=to_date(%s, 'YYYY-MM-DD') 
 		and c.id = i.component_id 
 	`, date1, date2))
 	rows, err := r.store.db.Query(`
-	select c.code, c."name", i.quantity, to_char(i."create", 'DD-MM-YYYY hh-mm') time from income i, components c 
+	select c.code, c."name", i.quantity, to_char(i."create", 'DD-MM-YYYY HH24-MI') time from income i, components c 
 	where 
 		i."create"::date>=to_date($1, 'YYYY-MM-DD') 
 		and i."create"::date<=to_date($2, 'YYYY-MM-DD') 
@@ -887,10 +896,11 @@ func (r *Repo) AktReport(date1, date2 string) (interface{}, error) {
 		Time      string  `json:"time"`
 		Quantity  float64 `json:"quantity"`
 		Comment   string  `json:"comment"`
+		Photo     string  `json:"photo"`
 	}
 
 	rows, err := r.store.db.Query(`
-	select  u.email, c."name" as component, to_char(a."time" , 'DD-MM-YYYY HH12:MI') time, a.quantity, a."comment"
+	select  u.email, c."name" as component, to_char(a."time" , 'DD-MM-YYYY HH12:MI') time, a.quantity, a."comment", a.photo
 	from akt a, components c, users u 
 	where a."time"::date>=to_date($1, 'YYYY-MM-DD') 
 	and a."time"::date<=to_date($2, 'YYYY-MM-DD') 
@@ -907,7 +917,7 @@ func (r *Repo) AktReport(date1, date2 string) (interface{}, error) {
 
 	for rows.Next() {
 		var comp Report
-		if err := rows.Scan(&comp.Email, &comp.Component, &comp.Time, &comp.Quantity, &comp.Comment); err != nil {
+		if err := rows.Scan(&comp.Email, &comp.Component, &comp.Time, &comp.Quantity, &comp.Comment, &comp.Photo); err != nil {
 			return nil, err
 		}
 		report = append(report, comp)

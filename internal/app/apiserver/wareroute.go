@@ -2,6 +2,7 @@ package apiserver
 
 import (
 	"bufio"
+	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
 	"mime/multipart"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/bingoohuang/xlsx"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func (s *Server) TodayStatistics(c *gin.Context) {
@@ -117,6 +119,82 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 	c.JSON(200, resp)
 }
 
+func (s *Server) CellAddComponent(c *gin.Context) {
+	resp := models.Responce{}
+	lot_id := c.GetInt("lot_id")
+	component_id := c.GetInt("component_id")
+	quantity := c.GetFloat64("quantity")
+	cell_id := c.GetInt("cell_id")
+	err := s.Store.Repo().CellAddComponent(quantity, component_id, lot_id, cell_id)
+	if err != nil {
+		s.Logger.Error("CellAddComponent: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	resp.Result = "ok"
+
+	c.JSON(200, resp)
+}
+func (s *Server) CellGetAll(c *gin.Context) {
+	resp := models.Responce{}
+
+	data, err := s.Store.Repo().CellGetAll()
+	if err != nil {
+		s.Logger.Error("CellGetAll: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	resp.Result = "ok"
+	resp.Data = data
+
+	c.JSON(200, resp)
+}
+func (s *Server) CellGetByComponent(c *gin.Context) {
+	resp := models.Responce{}
+
+	component_id := c.GetInt("component_id")
+
+	data, err := s.Store.Repo().CellGetByComponent(component_id)
+	if err != nil {
+		s.Logger.Error("CellGetAll: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	resp.Result = "ok"
+	resp.Data = data
+
+	c.JSON(200, resp)
+}
+
+func (s *Server) CellGetEmpty(c *gin.Context) {
+	resp := models.Responce{}
+	lot_id := c.GetInt("lot_id")
+	component_id := c.GetInt("component_id")
+
+	data, err := s.Store.Repo().CellGetEmpty(lot_id, component_id)
+	if err != nil {
+		s.Logger.Error("CellGetEmpty: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	resp.Result = "ok"
+	resp.Data = data
+
+	c.JSON(200, resp)
+}
+
 func (s *Server) AktReport(c *gin.Context) {
 	resp := models.Responce{}
 	date1 := c.GetString(("date1"))
@@ -144,22 +222,40 @@ func (s *Server) AktInput(c *gin.Context) {
 	account.Comment = c.GetString("comment")
 	account.Quantity = c.GetFloat64("quantity")
 	account.Checkpoint_id = c.GetInt("checkpoint_id")
+	account.Photo = c.GetString("photo")
 
-	err := s.Store.Repo().AktInput(account)
+	// s.Logger.Info("photo: ", account.Photo)
 
+	dec, err := base64.StdEncoding.DecodeString(account.Photo)
 	if err != nil {
-		s.Logger.Error("AktInput: ", err)
+		s.Logger.Error("error1: ", err)
+	}
+	fileName := uuid.New().String() + ".jpg"
+	f, err := os.Create(`..\global\media\` + fileName)
+	if err != nil {
+		s.Logger.Error("error2: ", err)
+	}
+	defer f.Close()
+
+	if _, err := f.Write(dec); err != nil {
+		s.Logger.Error("error3: ", err)
+	}
+	if err := f.Sync(); err != nil {
+		s.Logger.Error("error4: ", err)
+	}
+	s.Logger.Info("user: ", account.UserName, " update sector: ", account.Checkpoint_id, account.Component_id, account.Quantity)
+
+	if err := s.Store.Repo().SectorBalanceUpdateByQuantity(account.Checkpoint_id, account.Component_id, account.Quantity); err != nil {
+		s.Logger.Error("AktInput SectorBalanceUpdateByQuantity: ", err)
 		resp.Result = "error"
 		resp.Err = "Wrong Credentials"
 		c.JSON(200, resp)
 		c.Abort()
 		return
 	}
-
-	s.Logger.Info("user: ", account.UserName, " update sector: ", account.Checkpoint_id, account.Component_id, account.Quantity)
-
-	if err := s.Store.Repo().SectorBalanceUpdateByQuantity(account.Checkpoint_id, account.Component_id, account.Quantity); err != nil {
-		s.Logger.Error("AktInput SectorBalanceUpdateByQuantity: ", err)
+	err = s.Store.Repo().AktInput(account, fileName)
+	if err != nil {
+		s.Logger.Error("AktInput: ", err)
 		resp.Result = "error"
 		resp.Err = "Wrong Credentials"
 		c.JSON(200, resp)
@@ -336,13 +432,23 @@ func (s *Server) AddComponent(c *gin.Context) {
 	component.Weight = c.GetFloat64("weight")
 	component.InnerCode = c.GetString("inner_code")
 	s.Logger.Info(component)
-	err := s.Store.Repo().AddComponent(&component)
+	id, err := s.Store.Repo().AddComponent(&component)
 	if err != nil {
 		s.Logger.Error("AddComponent: ", err)
 		resp.Result = "error"
 		resp.Err = "Wrong Credentials"
 		c.JSON(200, resp)
 		return
+	}
+	s.Logger.Info("id: ", id)
+	if id > 0 {
+		err := s.Store.Repo().AddComponentComponentsIncome(id)
+		if err != nil {
+			s.Logger.Error("AddComponentComponentsIncome: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+		}
 	}
 	resp.Result = "ok"
 	c.JSON(200, resp)
@@ -454,8 +560,8 @@ func (s *Server) Income(c *gin.Context) {
 
 func (s *Server) IncomeReport(c *gin.Context) {
 	resp := models.Responce{}
-	date1 := c.GetString(("date1"))
-	date2 := c.GetString(("date2"))
+	date1 := c.GetString("date1")
+	date2 := c.GetString("date2")
 
 	data, err := s.Store.Repo().IncomeReport(date1, date2)
 	if err != nil {
@@ -575,9 +681,10 @@ func (s *Server) OutcomeComponentCheck(c *gin.Context) {
 func (s *Server) OutcomeComponentSubmit(c *gin.Context) {
 
 	resp := models.Responce{}
-	component_id := c.GetInt(("component_id"))
-	checkpoint_id := c.GetInt(("checkpoint_id"))
-	quantity := c.GetFloat64(("quantity"))
+	component_id := c.GetInt("component_id")
+	checkpoint_id := c.GetInt("checkpoint_id")
+	quantity := c.GetFloat64("quantity")
+	cell_id := c.GetInt("cell_id")
 
 	err := s.Store.Repo().OutcomeComponentSubmit(component_id, checkpoint_id, quantity)
 	if err != nil {
@@ -588,6 +695,21 @@ func (s *Server) OutcomeComponentSubmit(c *gin.Context) {
 		return
 	}
 
+	if err = s.Store.Repo().CellRemoveComponent(cell_id, quantity); err != nil {
+		s.Logger.Error("CellRemoveComponent: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	if err = s.Store.Repo().CellCheckEmpty(cell_id); err != nil {
+		s.Logger.Error("CellCheckEmpty: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
 	resp.Result = "ok"
 	c.JSON(200, resp)
 }
@@ -656,7 +778,7 @@ func (s *Server) OutcomeFile(c *gin.Context) {
 	defer x.Close()
 
 	if err := x.Read(&file); err != nil {
-		panic(err)
+		s.Logger.Error(err)
 	}
 	// fmt.Println(file)
 	res, err := s.Store.Repo().FileInput(file)

@@ -62,6 +62,7 @@ func (s *Server) Login(c *gin.Context) {
 	if err := c.ShouldBind(&user); err != nil {
 		logrus.Error("Login: Error Parsing body: ", err)
 	}
+	s.Logger.Info("user: ", user.Email)
 	if err := s.Store.Repo().FindByEmail(&user); err != nil {
 		resp.Result = "error"
 		resp.Err = "wrong email or password"

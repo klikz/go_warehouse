@@ -139,6 +139,7 @@ func (s *Server) WareCheckRole() gin.HandlerFunc {
 			return
 		}
 		s.Logger.Info("Action URL: ", c.Request.URL.String(), " user: ", parsedToken.Email)
+
 		c.Set("available", req.Available)
 		c.Set("id", req.ID)
 		c.Set("code", req.Code)
@@ -162,6 +163,66 @@ func (s *Server) WareCheckRole() gin.HandlerFunc {
 		c.Set("line", req.Line)
 		c.Set("inner_code", req.InnerCode)
 		c.Set("username", parsedToken.Email)
+		c.Set("lot_id", req.Lot_ID)
+		c.Set("cell_id", req.Cell_ID)
+
+	}
+}
+
+func (s *Server) ImportCheckRole() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		req := models.ImportModel{}
+		resp := models.Responce{}
+
+		if err := c.ShouldBind(&req); err != nil {
+			s.Logger.Error("Error Pasing body in CheckRole(): ", err)
+			resp.Result = "error"
+			resp.Err = err
+			c.JSON(401, resp)
+			c.Abort()
+			return
+		}
+
+		parsedToken, err := ParseToken(req.Token)
+		if err != nil {
+			s.Logger.Error("WareCheckRole Wrong Token: ", req.Token, " error: ", err)
+			resp.Result = "error"
+			resp.Err = "Wrong Credentials"
+			c.JSON(401, resp)
+			c.Abort()
+			return
+		}
+
+		res, err := s.Store.Repo().CheckRole(c.Request.URL.String(), parsedToken.Email)
+		if err != nil {
+			s.Logger.Error("WareCheckRole: ", req.Token, " error: ", err)
+			resp.Result = "error"
+			resp.Err = "Wrong Credentials"
+			c.JSON(401, resp)
+			c.Abort()
+			return
+		}
+
+		if !res {
+			s.Logger.Error("WareCheckRole: ", req.Token, " error: ", err)
+			resp.Result = "error"
+			resp.Err = "Wrong Credentials"
+			c.JSON(401, resp)
+			c.Abort()
+			return
+		}
+		s.Logger.Info("Action URL: ", c.Request.URL.String(), " user: ", parsedToken.Email)
+		c.Set("name", req.Name)
+		c.Set("lot_id", req.LotID)
+		c.Set("comment", req.Comment)
+		c.Set("batch_id", req.BatchID)
+		c.Set("container_id", req.ContainerID)
+		c.Set("quantity", req.Quantity)
+		c.Set("r_quantity", req.R_Quantity)
+		c.Set("component_id", req.ComponentID)
+		c.Set("income_id", req.IncomeID)
+		c.Set("file64", req.File64)
+		c.Set("unit", req.Unit)
 
 	}
 }

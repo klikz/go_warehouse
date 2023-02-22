@@ -7,4 +7,5 @@ type Akt struct {
 	UserID        int
 	Quantity      float64
 	Checkpoint_id int
+	Photo         string `json:"photo"`
 }

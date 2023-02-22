@@ -198,6 +198,7 @@ func (s *Server) SectorBalanceUpdate(c *gin.Context) {
 
 func (s *Server) GetPackingLast(c *gin.Context) {
 	resp := models.Responce{}
+	s.Logger.Info("packing last")
 	data, err := s.Store.Repo().GetPackingLast()
 	if err != nil {
 		s.Logger.Error("GetPackingLast: ", err)
@@ -313,19 +314,11 @@ func (s *Server) AddDefectsTypes(c *gin.Context) {
 
 func (s *Server) AddDefects(c *gin.Context) {
 	resp := models.Responce{}
-	temp, _ := c.Get("serial")
-	temp2, _ := c.Get("checkpoint_id")
-	temp4, _ := c.Get("name")
-	temp5, _ := c.Get("defect_id")
-	temp6, _ := c.Get("image")
-
-	checkpoint := temp2.(int)
-	name := temp4.(string)
-	serial := temp.(string)
-	defect := temp5.(int)
-	image2 := temp6.(string)
-	// u.Serial, name, u.Line, id.ID, u.Defect
-	// s.Logger.Info("image:", image)
+	serial := c.GetString("serial")
+	checkpoint := c.GetInt("checkpoint_id")
+	name := c.GetString("name")
+	defect := c.GetInt("defect_id")
+	image2 := c.GetString("image")
 
 	reader := base64.NewDecoder(base64.StdEncoding, strings.NewReader(image2))
 	m, formatString, err := image.Decode(reader)
@@ -341,7 +334,7 @@ func (s *Server) AddDefects(c *gin.Context) {
 
 	//Encode from image format to writer
 	fileName := uuid.New().String() + ".jpg"
-	pngFilename := `g:\premier\server_V2\global\media\` + fileName
+	pngFilename := `g:\premier\server_V2\global\media\` + fileName //adress in server
 	// pngFilename := `D:\premier\v2\Global\media\` + fileName
 	f, err := os.OpenFile(pngFilename, os.O_WRONLY|os.O_CREATE, 0777)
 
@@ -357,19 +350,40 @@ func (s *Server) AddDefects(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("AddDefects encode image: ", err)
 		resp.Result = "error"
-		resp.Err = "Error encode"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
-	// fmt.Println("Jpg file", pngFilename, "created")
+	fmt.Println("Jpg file", pngFilename, "created")
 
 	err = s.Store.Repo().AddDefects(serial, name, fileName, checkpoint, defect)
 	if err != nil {
 		s.Logger.Error("AddDefects: ", err)
 		resp.Result = "error"
-		resp.Err = "Serial xato"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
+	}
+
+	count, err := s.Store.Repo().CheckCountRemont(serial)
+
+	if err != nil {
+		s.Logger.Error("CheckCountRemont: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	if count >= 3 {
+		err := s.Store.Repo().BlockProduct(serial)
+		if err != nil {
+			s.Logger.Error("BlockProduct: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
 	}
 
 	resp.Result = "ok"
@@ -564,7 +578,27 @@ func (s *Server) UpdateRemont(c *gin.Context) {
 	name := temp.(string)
 	id := temp2.(int)
 
-	err := s.Store.Repo().UpdateRemont(name, id)
+	serial, err := s.Store.Repo().GetSerialFromRemontId(id)
+	if err != nil {
+		s.Logger.Error("GetSerialFromRemontId: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	checkBlocked := s.Store.Repo().CheckBlockedProduct(serial)
+
+	if checkBlocked > 0 {
+		s.Logger.Error("Try Update Blocked Product: ", serial)
+		resp.Result = "error"
+		resp.Err = "Blocked Product"
+		c.JSON(200, resp)
+		return
+
+	}
+
+	err = s.Store.Repo().UpdateRemont(name, id)
 	if err != nil {
 		s.Logger.Error("GetByDate: ", err)
 		resp.Result = "error"
@@ -613,6 +647,16 @@ func (s *Server) PackingSerialInput(c *gin.Context) {
 	// 	c.JSON(200, resp)
 	// 	return
 	// }
+
+	chechRemontStatus := s.Store.Repo().CheckRemontStatusProduct(serial)
+
+	if chechRemontStatus > 0 {
+		s.Logger.Error("CheckRemontStatusProduct: ", serial)
+		resp.Result = "error"
+		resp.Err = "Remont tugallanmagan"
+		c.JSON(200, resp)
+		return
+	}
 
 	err := s.Store.Repo().PackingSerialInput(serial, retry) //, packing)
 	if err != nil {
@@ -724,6 +768,22 @@ func (s *Server) MetallSerial(c *gin.Context) {
 	}
 
 	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
+func (s *Server) GetBlockedProducts(c *gin.Context) {
+	resp := models.Responce{}
+
+	data, err := s.Store.Repo().GetBlockedProducts()
+	if err != nil {
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+	}
+
+	resp.Result = "ok"
+	resp.Data = data
+
 	c.JSON(200, resp)
 }
 

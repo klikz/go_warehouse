@@ -9,3 +9,10 @@ type FileInput struct {
 	Checkpoint_id int
 	ID            int
 }
+
+type FileInput2 struct {
+	Code     string  `title:"code"`
+	Unit     string  `title:"unit"`
+	Quantity float64 `title:"quantity"`
+	Comment  string  `title:"comment"`
+}

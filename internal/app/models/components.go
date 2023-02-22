@@ -25,6 +25,8 @@ type Component struct {
 	Retry         bool    `json:"retry"`
 	Line          int     `json:"line"`
 	InnerCode     string  `json:"inner_code"`
+	Lot_ID        int     `json:"lot_id"`
+	Cell_ID       int     `json:"cell_id"`
 }
 
 type Last struct {

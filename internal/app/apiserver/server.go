@@ -80,6 +80,10 @@ func (s *Server) configureRouter() {
 		ware.POST("/gscode/get", s.GetKeys)                                   // {"token": string}
 		ware.POST("/akt/input", s.AktInput)                                   // {"token": string, "component_id": int, "comment": string, "quantity": float64, "checkpoint_id": int}
 		ware.POST("/akt/report", s.AktReport)                                 // {"date1":string, "date2":string, "token": string}
+		ware.POST("/cell/getempty", s.CellGetEmpty)                           // {"lot_id":int, "component_id":int, "token": string}
+		ware.POST("/cell/getall", s.CellGetAll)                               // {"token": string}
+		ware.POST("/cell/addcomponent", s.CellAddComponent)                   // {"lot_id":int, "component_id":int, "cell_id": int, "quantity": float64, "token": string}
+		ware.POST("/cell/getbycomponent", s.CellGetByComponent)               // {"lot_id":int, "component_id":int, "cell_id": int, "quantity": float64, "token": string}
 	}
 
 	global := s.Router.Group("/api") //Route for global use
@@ -117,6 +121,7 @@ func (s *Server) configureRouter() {
 		global.POST("/production/today/statistics", s.TodayStatistics)              // {"token": string}
 		global.POST("/production/plan/today", s.GetPlan)                            // {"token": string}
 		global.POST("/ware/components/outcome", s.GetAllComponentsOutCome)          // {"token": string}
+		global.POST("/ware/blocked/getList", s.GetBlockedProducts)                  // {"token": string}
 
 	}
 
@@ -154,7 +159,38 @@ func (s *Server) configureRouter() {
 		production.POST("/metall/serial", s.MetallSerial)                   // {"id", int}
 		production.POST("/logistics", s.ProductionLogistics)                // {"line":int, "checkpoint_id":int, "serial": string}  //line-> income, checkpoint->outcome
 		production.POST("/check_remont", s.CheckRemont)                     // {"serial": string}
+		production.POST("/today/statistics", s.TodayStatistics)             // {"serial": string}
 		// production.POST("/galileo/tcp", s.GalileoTCP)                      // {"id", int}
 	}
+
+	imports := s.Router.Group("/import")
+	imports.Use(s.ImportCheckRole())
+	{
+		imports.POST("/lot/add", s.InsertLot)                                     //{"name": string, "comment": string, "token": string}
+		imports.POST("/lot/delete", s.DeleteLot)                                  //{"lot_id": int, "token": string}
+		imports.POST("/lot/update", s.UpdateLot)                                  //{"name": string, "comment": string, "lot_id": int, "token": string}
+		imports.POST("/lot/block", s.BlockLot)                                    //{"lot_id": int, "token": string}
+		imports.POST("/lot/unblock", s.UnBlockLot)                                //{"lot_id": int, "token": string}
+		imports.POST("/lot/activate", s.ActivateLot)                              //{"lot_id": int, "token": string}
+		imports.POST("/lot/deactivate", s.DeActivateLot)                          //{"lot_id": int, "token": string}
+		imports.POST("/lot/getall", s.GetAllLot)                                  //{"token": string}
+		imports.POST("/lot/getallactive", s.GetAllLotActive)                      //{"token": string}
+		imports.POST("/batch/add", s.InsertBatch)                                 //{"lot_id": int, "name": string, "comment": string, "token": string}
+		imports.POST("/batch/delete", s.DeleteBatch)                              //{"batch_id": int, "token": string}
+		imports.POST("/batch/update", s.UpdateBatch)                              //{"name": string, "comment": string, "batch_id": int, "token": string}
+		imports.POST("/batch/getbylot", s.GetBatchByLot)                          //{"lot_id":int, "token": string}
+		imports.POST("/container/add", s.InsertContainer)                         //{"lot_id": int, "batch_id": int, "name": string, "comment": string, "token": string}
+		imports.POST("/container/delete", s.DeleteContainer)                      //{"container_id": int, "token": string}
+		imports.POST("/container/update", s.UpdateContainer)                      //{"name": string, "comment": string, "container_id": int, "token": string}
+		imports.POST("/container/getbybatch", s.GetContainerByBatch)              //{"batch_id":int, "token": string}
+		imports.POST("/container/components", s.GetContainerComponents)           //{"container_id":int, "token": string}
+		imports.POST("/container/components/delete", s.ContainerComponentsDelete) //{"container_id":int, "token": string}
+		imports.POST("/container/components/update", s.ContainerComponentsUpdate) //{"container_id":int, "token": string}
+		imports.POST("/register/component", s.ImportIncomeRegister)               //{"lot_id": int, "batch_id":int, "container_id": int, "component_id": int, "quantity": float64, "comment": string, "token": string}
+		imports.POST("/income/component", s.ImportIncomeAdd)                      //{"income_id": int, "quantity": float64, "token": string}
+		imports.POST("/income/file", s.FileFromContainer)                         //{"income_id": int, "quantity": float64, "token": string}
+
+	}
+
 	s.Router.POST("galileo/input", s.GalileoInput)
 }
