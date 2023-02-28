@@ -79,11 +79,13 @@ func (s *Server) configureRouter() {
 		ware.POST("/production/sector/balance/update", s.SectorBalanceUpdate) // {"line":int, "component_id": int, "quantity": float64, "token": string}
 		ware.POST("/gscode/get", s.GetKeys)                                   // {"token": string}
 		ware.POST("/akt/input", s.AktInput)                                   // {"token": string, "component_id": int, "comment": string, "quantity": float64, "checkpoint_id": int}
+		ware.POST("/akt/input/ware", s.AktInputWare)                          // {"token": string, "component_id": int, "comment": string, "quantity": float64, "checkpoint_id": int}
 		ware.POST("/akt/report", s.AktReport)                                 // {"date1":string, "date2":string, "token": string}
 		ware.POST("/cell/getempty", s.CellGetEmpty)                           // {"lot_id":int, "component_id":int, "token": string}
 		ware.POST("/cell/getall", s.CellGetAll)                               // {"token": string}
 		ware.POST("/cell/addcomponent", s.CellAddComponent)                   // {"lot_id":int, "component_id":int, "cell_id": int, "quantity": float64, "token": string}
 		ware.POST("/cell/getbycomponent", s.CellGetByComponent)               // {"lot_id":int, "component_id":int, "cell_id": int, "quantity": float64, "token": string}
+		ware.POST("/cell/getbycomponent/all", s.CellGetByComponentAll)        // {"lot_id":int, "component_id":int, "cell_id": int, "quantity": float64, "token": string}
 	}
 
 	global := s.Router.Group("/api") //Route for global use
@@ -157,9 +159,11 @@ func (s *Server) configureRouter() {
 		production.POST("/galileo/todaymodels", s.GalileoTodayModels)       // {}
 		production.POST("/models", s.Models)                                // {}
 		production.POST("/metall/serial", s.MetallSerial)                   // {"id", int}
+		production.POST("/vakum/serial", s.VakumSerial)                     // {"id", int}
 		production.POST("/logistics", s.ProductionLogistics)                // {"line":int, "checkpoint_id":int, "serial": string}  //line-> income, checkpoint->outcome
 		production.POST("/check_remont", s.CheckRemont)                     // {"serial": string}
 		production.POST("/today/statistics", s.TodayStatistics)             // {"serial": string}
+		production.POST("/test", s.Test)                                    // {"serial": string}
 		// production.POST("/galileo/tcp", s.GalileoTCP)                      // {"id", int}
 	}
 

@@ -9,7 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (r *Repo) AktInput(account models.Akt, filename string) error {
+func (r *Repo) AktInput(account models.Akt, filename string, type_id int) error {
 	if err := r.store.db.QueryRow(`select u.id from users u where u.email = $1`, account.UserName).Scan(&account.UserID); err != nil {
 		if err == sql.ErrNoRows {
 			return errors.New("sql.ErrNoRows")
@@ -18,7 +18,7 @@ func (r *Repo) AktInput(account models.Akt, filename string) error {
 	}
 
 	// fmt.Println("account: ", account)
-	result, err := r.store.db.Exec(`insert into akt (component_id, user_id, "comment", quantity, photo) values ($1, $2, $3, $4, $5)`, account.Component_id, account.UserID, account.Comment, account.Quantity, filename)
+	result, err := r.store.db.Exec(`insert into akt (component_id, user_id, "comment", quantity, photo, akt_type_id, checkpoint_id) values ($1, $2, $3, $4, $5, $6, $7)`, account.Component_id, account.UserID, account.Comment, account.Quantity, filename, type_id, account.Checkpoint_id)
 	if err != nil {
 		logrus.Info("err: ", err)
 		return err
@@ -29,6 +29,31 @@ func (r *Repo) AktInput(account models.Akt, filename string) error {
 		return nil
 	}
 	return errors.New("server error")
+}
+
+func (r *Repo) AktInputWare(account models.Akt, filename string, type_id, lot_id int) (int, error) {
+	if err := r.store.db.QueryRow(`select u.id from users u where u.email = $1`, account.UserName).Scan(&account.UserID); err != nil {
+		if err == sql.ErrNoRows {
+			return 0, errors.New("sql.ErrNoRows")
+		}
+		return 0, err
+	}
+
+	// fmt.Println("account: ", account)
+	id := 0
+	err := r.store.db.QueryRow(`insert into akt (component_id, user_id, "comment", quantity, photo, akt_type_id, lot_id, checkpoint_id) values ($1, $2, $3, $4, $5, $6, $7, $8) returning id`, account.Component_id, account.UserID, account.Comment, account.Quantity, filename, type_id, lot_id, account.Checkpoint_id).Scan(&id)
+	if err != nil {
+		logrus.Info("err: ", err)
+		return 0, err
+	}
+	// rowsAffected, _ := result.RowsAffected()
+
+	logrus.Info("id: ", id)
+
+	// if rowsAffected > 0 {
+	// 	return nil
+	// }
+	return id, nil
 }
 
 func (r *Repo) GetGPCompontents() (interface{}, error) {
@@ -587,6 +612,14 @@ func (r *Repo) OutcomeComponentCheck(id int, quantity float64) (interface{}, err
 	return checkComp, errors.New("yetarli emas")
 }
 
+func (r *Repo) OutcomeInsert(component_id, checkpoint_id int, quantity float64, comment string) error {
+	_, err := r.store.db.Exec(`insert into outcome (component_id, checkpoint_id, quantity, comment) values ($1, $2, $3, $4)`, component_id, checkpoint_id, quantity, comment)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (r *Repo) OutcomeComponentSubmit(component_id, checkpoint_id int, quantity float64) error {
 
 	_, err := r.store.db.Exec(`insert into outcome (component_id, checkpoint_id, quantity) values ($1, $2, $3)`, component_id, checkpoint_id, quantity)
@@ -630,6 +663,14 @@ func (r *Repo) OutcomeComponentSubmit(component_id, checkpoint_id int, quantity 
 		return err
 	}
 
+	return nil
+}
+
+func (r *Repo) RemoveComponentFromWare(component_id int, quantity float64) error {
+	_, err := r.store.db.Exec(`update public.components set available = available - $1 where id = $2`, quantity, component_id)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -726,10 +767,11 @@ func (r *Repo) OutcomeReport(date1, date2 string) (interface{}, error) {
 		Quantity   float64 `json:"quantity"`
 		Checkpoint string  `json:"checkpoint"`
 		Time       string  `json:"time"`
+		Comment    string  `json:"comment"`
 	}
 
 	rows, err := r.store.db.Query(`
-	select c.code, c."name", i.quantity, c2."name" as checkpoint, to_char(i."create", 'DD-MM-YYYY HH12:MI') time from outcome i, components c, checkpoints c2 
+	select c.code, c."name", i.quantity, c2."name" as checkpoint, to_char(i."create", 'DD-MM-YYYY HH12:MI') time, i.comment from outcome i, components c, checkpoints c2 
 	where 
 		i."create"::date>=to_date($1, 'YYYY-MM-DD') 
 		and i."create"::date<=to_date($2, 'YYYY-MM-DD') 
@@ -746,7 +788,7 @@ func (r *Repo) OutcomeReport(date1, date2 string) (interface{}, error) {
 
 	for rows.Next() {
 		var comp Report
-		if err := rows.Scan(&comp.Code, &comp.Name, &comp.Quantity, &comp.Checkpoint, &comp.Time); err != nil {
+		if err := rows.Scan(&comp.Code, &comp.Name, &comp.Quantity, &comp.Checkpoint, &comp.Time, &comp.Comment); err != nil {
 			return nil, err
 		}
 		report = append(report, comp)
@@ -897,15 +939,19 @@ func (r *Repo) AktReport(date1, date2 string) (interface{}, error) {
 		Quantity  float64 `json:"quantity"`
 		Comment   string  `json:"comment"`
 		Photo     string  `json:"photo"`
+		AktType   string  `json:"akt_type"`
+		ID        int     `json:"id"`
 	}
 
 	rows, err := r.store.db.Query(`
-	select  u.email, c."name" as component, to_char(a."time" , 'DD-MM-YYYY HH12:MI') time, a.quantity, a."comment", a.photo
-	from akt a, components c, users u 
+	select  u.email, c."name" as component, to_char(a."time" , 'DD-MM-YYYY HH12:MI') time, a.quantity, a."comment", a.photo, at2."name" as akt_type, a.id
+	from akt a, components c, users u, akt_type at2  
 	where a."time"::date>=to_date($1, 'YYYY-MM-DD') 
 	and a."time"::date<=to_date($2, 'YYYY-MM-DD') 
 	and u.id = a.user_id 
 	and c.id = a.component_id
+	and at2.id = a.akt_type_id
+	order by a."time" 
 	`, date1, date2)
 	if err != nil {
 		return nil, err
@@ -917,7 +963,7 @@ func (r *Repo) AktReport(date1, date2 string) (interface{}, error) {
 
 	for rows.Next() {
 		var comp Report
-		if err := rows.Scan(&comp.Email, &comp.Component, &comp.Time, &comp.Quantity, &comp.Comment, &comp.Photo); err != nil {
+		if err := rows.Scan(&comp.Email, &comp.Component, &comp.Time, &comp.Quantity, &comp.Comment, &comp.Photo, &comp.AktType, &comp.ID); err != nil {
 			return nil, err
 		}
 		report = append(report, comp)

@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"mime/multipart"
 	"os"
+	"time"
 	"warehouse/internal/app/models"
 
 	"github.com/bingoohuang/xlsx"
@@ -175,6 +177,26 @@ func (s *Server) CellGetByComponent(c *gin.Context) {
 	c.JSON(200, resp)
 }
 
+func (s *Server) CellGetByComponentAll(c *gin.Context) {
+	resp := models.Responce{}
+
+	component_id := c.GetInt("component_id")
+
+	data, err := s.Store.Repo().CellGetByComponentAll(component_id)
+	if err != nil {
+		s.Logger.Error("CellGetAll: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	resp.Result = "ok"
+	resp.Data = data
+
+	c.JSON(200, resp)
+}
+
 func (s *Server) CellGetEmpty(c *gin.Context) {
 	resp := models.Responce{}
 	lot_id := c.GetInt("lot_id")
@@ -223,15 +245,17 @@ func (s *Server) AktInput(c *gin.Context) {
 	account.Quantity = c.GetFloat64("quantity")
 	account.Checkpoint_id = c.GetInt("checkpoint_id")
 	account.Photo = c.GetString("photo")
-
+	type_id := c.GetInt("type_id")
 	// s.Logger.Info("photo: ", account.Photo)
 
 	dec, err := base64.StdEncoding.DecodeString(account.Photo)
 	if err != nil {
 		s.Logger.Error("error1: ", err)
 	}
+
 	fileName := uuid.New().String() + ".jpg"
-	f, err := os.Create(`..\global\media\` + fileName)
+	f, err := os.Create(`g:\premier\server_V2\ware_spa\dist\assets\photo\` + fileName)
+	// f, err := os.Create(`..\global\media\` + fileName)
 	if err != nil {
 		s.Logger.Error("error2: ", err)
 	}
@@ -245,17 +269,114 @@ func (s *Server) AktInput(c *gin.Context) {
 	}
 	s.Logger.Info("user: ", account.UserName, " update sector: ", account.Checkpoint_id, account.Component_id, account.Quantity)
 
-	if err := s.Store.Repo().SectorBalanceUpdateByQuantity(account.Checkpoint_id, account.Component_id, account.Quantity); err != nil {
-		s.Logger.Error("AktInput SectorBalanceUpdateByQuantity: ", err)
+	if account.Checkpoint_id == 28 {
+
+	} else {
+		if err := s.Store.Repo().SectorBalanceUpdateByQuantity(account.Checkpoint_id, account.Component_id, account.Quantity); err != nil {
+			s.Logger.Error("AktInput SectorBalanceUpdateByQuantity: ", err)
+			resp.Result = "error"
+			resp.Err = "Wrong Credentials"
+			c.JSON(200, resp)
+			c.Abort()
+			return
+		}
+	}
+
+	err = s.Store.Repo().AktInput(account, fileName, type_id)
+	if err != nil {
+		s.Logger.Error("AktInput: ", err)
 		resp.Result = "error"
 		resp.Err = "Wrong Credentials"
 		c.JSON(200, resp)
 		c.Abort()
 		return
 	}
-	err = s.Store.Repo().AktInput(account, fileName)
+
+	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
+func (s *Server) AktInputWare(c *gin.Context) {
+
+	account := models.Akt{}
+	resp := models.Responce{}
+
+	account.Component_id = c.GetInt("component_id")
+	account.UserName = c.GetString("username")
+	account.Comment = c.GetString("comment")
+	account.Quantity = c.GetFloat64("quantity")
+	account.Checkpoint_id = c.GetInt("checkpoint_id")
+	account.Photo = c.GetString("photo")
+	type_id := c.GetInt("type_id")
+	cell_id := c.GetInt("cell_id")
+	lot_id := c.GetInt("lot_id")
+	// s.Logger.Info("Component_id: ", account.Component_id)
+	// s.Logger.Info("UserName: ", account.UserName)
+	// s.Logger.Info("Quantity: ", account.Quantity)
+	// s.Logger.Info("type_id: ", type_id)
+	s.Logger.Info("lot_id: ", lot_id)
+
+	if err := s.Store.Repo().CellRemoveComponent(cell_id, account.Quantity); err != nil {
+		s.Logger.Error("CellRemoveComponent: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	if err := s.Store.Repo().CellCheckEmpty(cell_id); err != nil {
+		s.Logger.Error("CellCheckEmpty: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	if err := s.Store.Repo().RemoveComponentFromWare(account.Component_id, account.Quantity); err != nil {
+		s.Logger.Error("RemoveComponentFromWare: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	dec, err := base64.StdEncoding.DecodeString(account.Photo)
+	if err != nil {
+		s.Logger.Error("error1: ", err)
+	}
+
+	fileName := uuid.New().String() + ".jpg"
+	f, err := os.Create(`g:\premier\server_V2\ware_spa\dist\assets\photo\` + fileName)
+	// f, err := os.Create(`..\global\media\` + fileName)
+	if err != nil {
+		s.Logger.Error("error2: ", err)
+	}
+	defer f.Close()
+
+	if _, err := f.Write(dec); err != nil {
+		s.Logger.Error("error3: ", err)
+	}
+	if err := f.Sync(); err != nil {
+		s.Logger.Error("error4: ", err)
+	}
+	s.Logger.Info("user: ", account.UserName, " update sector: ", account.Checkpoint_id, account.Component_id, account.Quantity)
+
+	id, err := s.Store.Repo().AktInputWare(account, fileName, type_id, lot_id)
 	if err != nil {
 		s.Logger.Error("AktInput: ", err)
+		resp.Result = "error"
+		resp.Err = "Wrong Credentials"
+		c.JSON(200, resp)
+		c.Abort()
+		return
+	}
+
+	t := time.Now()
+	tString := t.Format("2006-01-02 15:04:05")
+	tString += fmt.Sprintf(" Списано ID: %v", id)
+
+	if err := s.Store.Repo().OutcomeInsert(account.Component_id, account.Checkpoint_id, account.Quantity, tString); err != nil {
+		s.Logger.Error("OutcomeInsert: ", err)
 		resp.Result = "error"
 		resp.Err = "Wrong Credentials"
 		c.JSON(200, resp)

@@ -17,6 +17,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//
+func (r *Repo) Test() (string, error) {
+	code := ""
+	if err := r.store.db.QueryRow(`select g."data" from gs g where g.product = 'A1FA030103768'`).Scan(&code); err != nil {
+		return "", err
+	}
+	return code, nil
+}
+
 type PrinStruct struct {
 	LibraryID        string `json:"libraryID"`
 	AbsolutePath     string `json:"absolutePath"`
@@ -71,6 +80,8 @@ func (r *Repo) debitFromLine(modelId, lineId int) error {
 	if err = rows.Err(); err != nil {
 		return err
 	}
+
+	logrus.Info("debit: ", debits)
 	for _, x := range debits {
 		_, err := r.store.db.Exec(fmt.Sprintf("update checkpoints.\"%d\" set quantity = quantity - %f where component_id = %d", lineId, x.Quantity, x.Component_id))
 		if err != nil {
@@ -137,7 +148,7 @@ func (r *Repo) IncomeInProduction(lineIncome, lineOutcome int, serial string) er
 			return errors.New("liniya xato")
 		}
 		//check model
-		if err := r.store.db.QueryRow("select v.component_id from \"vacuum\" v where v.serial = $1", serialSlice).Scan(&componentID); err != nil {
+		if err := r.store.db.QueryRow("select v.gp_component_id from \"vacuum\" v where v.serial = $1", serialSlice).Scan(&componentID); err != nil {
 			return errors.New("serial xato 1")
 		}
 	} else {
@@ -307,6 +318,56 @@ func PrintMetall(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
 
 	// channel <- "ok"
 	// logrus.Info("Printing: ", string(jsonStr))
+}
+
+func PrintVakum(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	// reprint := true
+	// count := 0
+
+	// for reprint {
+	// 	if count > 3 {
+	// 		channel <- "qaytadan urinib ko'ring"
+	// 		close(channel)
+	// 		return
+	// 	}
+	// 	// logrus.Info("Printing started")
+	// 	url := "http://192.168.5.126/BarTender/api/v1/print"
+	// 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	// 	if err != nil {
+	// 		channel <- err.Error()
+	// 		close(channel)
+	// 		return
+	// 	}
+	// 	req.Header.Set("X-Custom-Header", "myvalue")
+	// 	req.Header.Set("Content-Type", "application/json")
+	// 	client := &http.Client{}
+	// 	resp, err := client.Do(req)
+	// 	if err != nil {
+	// 		channel <- err.Error()
+	// 		close(channel)
+	// 		return
+	// 	}
+	// 	defer resp.Body.Close()
+
+	// 	body, _ := ioutil.ReadAll(resp.Body)
+	// 	var jsonMap map[string]interface{}
+	// 	json.Unmarshal([]byte(string(body)), &jsonMap)
+	// 	// logrus.Info("body: ", string(body))
+
+	// 	if strings.Contains(string(body), "BarTender успешно отправил задание") {
+	// 		reprint = false
+	// 		channel <- "ok"
+	// 		close(channel)
+	// 		// logrus.Info("Printing end")
+	// 		return
+	// 	}
+	// 	count++
+	// }
+
+	channel <- "ok"
+	logrus.Info("Printing: ", string(jsonStr))
 }
 
 func (r *Repo) PlanCountToday() (int, error) {
@@ -2182,7 +2243,7 @@ func (r *Repo) SerialInput(line int, serial string) error {
 					"SerialInput": "%s"
 			}
 		}`, modelName, serial))
-			PrintMetall(data, channel, &wg)
+			go PrintMetall(data, channel, &wg)
 
 			wg.Wait()
 			errorText1 := <-channel
@@ -2304,9 +2365,9 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 		if err := r.store.db.QueryRow(`select g."data" from gs g where product = $1`, serial).Scan(&code); err != nil {
 			return err
 		}
-		code = strings.ReplaceAll(code, `"`, `\"`)
-		code = strings.ReplaceAll(code, ``, ``)
-
+		// code = strings.ReplaceAll(code, `"`, `\"`)
+		// code = strings.ReplaceAll(code, ``, ``)
+		ioutil.WriteFile("G:/gs_code/gscode.txt", []byte(code), 0644)
 		channel1 := make(chan string, 1)
 		channel2 := make(chan string, 1)
 
@@ -2319,11 +2380,10 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 				"PrintRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
 				"Printer": "Gainscha GS-3405T",
 				"DataEntryControls": {
-						"GSCodeInput": "%v",
 						"SeriaInput": "%s"
 				}
 
-				}`, serialSlice, code, serial))
+				}`, serialSlice, serial))
 		var data2 = []byte(fmt.Sprintf(`
 		{
 			"LibraryID": "2de725d4-1952-418e-81cc-450baa035a34",
@@ -2410,8 +2470,11 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 
 	channel1 := make(chan string, 1)
 	channel2 := make(chan string, 1)
-	codeData.Data = strings.ReplaceAll(codeData.Data, `"`, `\"`)
-	codeData.Data = strings.ReplaceAll(codeData.Data, ``, ``)
+
+	ioutil.WriteFile("G:/gs_code/gscode.txt", []byte(codeData.Data), 0644)
+
+	// codeData.Data = strings.ReplaceAll(codeData.Data, `"`, `\"`)
+	// codeData.Data = strings.ReplaceAll(codeData.Data, ``, ``)
 	logrus.Info("Print data")
 	var data1 = []byte(fmt.Sprintf(`
 			{
@@ -2420,10 +2483,9 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 				"PrintRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
 				"Printer": "Gainscha GS-3405T",
 				"DataEntryControls": {
-						"GSCodeInput": "%s",
 						"SeriaInput": "%s"
 				}
-			}`, serialSlice, codeData.Data, serial))
+			}`, serialSlice, serial))
 	var data2 = []byte(fmt.Sprintf(`
 		{
 			"LibraryID": "2de725d4-1952-418e-81cc-450baa035a34",
@@ -2737,32 +2799,191 @@ func (r *Repo) GalileoTodayModels() (interface{}, error) {
 			return byModel, nil
 		}
 	}
+}
 
-	// rows, err := r.store.db.Query(`
-	// select p.model_id, m."name", COUNT(*) FROM galileo p, models m
-	// where p."time"::date>=to_date($1, 'YYYY-MM-DD')
-	// and m.id = p.model_id
-	// group by m."name", p.model_id
-	// order by m."name" `)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// defer rows.Close()
-	// var byModel []ByModel
+func (r *Repo) VakumIscreaseComponent(component_id int) error {
 
-	// for rows.Next() {
-	// 	var comp ByModel
-	// 	if err := rows.Scan(&comp.Model_id,
-	// 		&comp.Name,
-	// 		&comp.Count); err != nil {
-	// 		return byModel, err
-	// 	}
-	// 	byModel = append(byModel, comp)
-	// }
-	// if err = rows.Err(); err != nil {
-	// 	return byModel, err
-	// }
-	// return byModel, nil
+	_, err := r.store.db.Exec(fmt.Sprintf("update checkpoints.\"1\" set quantity = quantity - 1 where component_id = %d", component_id))
+	if err != nil {
+		return err
+	}
+	return nil
+
+}
+func (r *Repo) VakumAddGpComponent(component_id int) error {
+	_, err := r.store.repo.store.db.Exec(fmt.Sprintf(`
+	with p_param as (
+	select %v::int8 component_id), i_products as (
+	INSERT INTO checkpoints."%v" (component_id, quantity)
+	select t.component_id, 1
+	from p_param t
+	where not exists (select 1 from checkpoints."%v" p where p.component_id  = t.component_id)
+	returning checkpoints."%v".*),u_products as (
+	update checkpoints."%v" t
+	set quantity = quantity + 1
+	from p_param p
+	where p.component_id = t.component_id
+	returning t.*)
+	select case when s1.component_id is null then null else 'add' end add_p,
+	case when s2.component_id is null then null else 'updated' end edit_p
+	from p_param p
+	left join i_products s1
+	on true
+	left join u_products s2
+	on true   
+`, component_id, 1, 1, 1, 1))
+	if err != nil {
+		fmt.Println("VakumAddGpComponent: ", err)
+		return err
+	}
+	return nil
+
+}
+
+func (r *Repo) VakumSerialPrint(id int) error {
+	count := 0
+
+	serial_1 := ""
+	serial_2 := ""
+
+	switch {
+	case id == 1:
+		serial_1 = "HI211M"
+		serial_2 = "HI211X"
+	case id == 3:
+		serial_1 = "HI261M"
+		serial_2 = "HI261X"
+	case id == 6:
+		serial_1 = "ZS211"
+	case id == 7:
+		serial_1 = "ZS261"
+	}
+
+	//update count
+	if err := r.store.db.QueryRow(`update "vacuum" set count = count + 1 where id = $1 returning count`, id).Scan(&count); err != nil {
+		return err
+	}
+
+	model_id := 0
+	model_name := ""
+
+	if err := r.store.db.QueryRow(`select v.model_id, m."name" from "vacuum" v, models m  where v.id = $1 and m.id = v.model_id`, id).Scan(&model_id, &model_name); err != nil {
+		return err
+	}
+
+	logrus.Info("count: ", count)
+
+	switch {
+	case count < 10:
+		serial_1 = fmt.Sprintf(`%s000000%d`, serial_1, count)
+		serial_2 = fmt.Sprintf(`%s000000%d`, serial_2, count)
+	case count < 100:
+		serial_1 = fmt.Sprintf(`%s00000%d`, serial_1, count)
+		serial_2 = fmt.Sprintf(`%s00000%d`, serial_2, count)
+	case count < 1000:
+		serial_1 = fmt.Sprintf(`%s0000%d`, serial_1, count)
+		serial_2 = fmt.Sprintf(`%s0000%d`, serial_2, count)
+	case count < 10000:
+		serial_1 = fmt.Sprintf(`%s000%d`, serial_1, count)
+		serial_2 = fmt.Sprintf(`%s000%d`, serial_2, count)
+	case count < 100000:
+		serial_1 = fmt.Sprintf(`%s00%d`, serial_1, count)
+		serial_2 = fmt.Sprintf(`%s00%d`, serial_2, count)
+	case count < 1000000:
+		serial_1 = fmt.Sprintf(`%s0%d`, serial_1, count)
+		serial_2 = fmt.Sprintf(`%s0%d`, serial_2, count)
+	case count > 1000000:
+		serial_1 = fmt.Sprintf(`%s%d`, serial_1, count)
+		serial_2 = fmt.Sprintf(`%s%d`, serial_2, count)
+	}
+
+	if id == 6 || id == 7 {
+		logrus.Info("id 6 || 7")
+		var wg sync.WaitGroup
+		wg.Add(1)
+
+		channel := make(chan string, 1)
+
+		data := []byte(fmt.Sprintf(`
+		{
+			"libraryID": "986278f7-755f-4412-940f-a89e893947de",
+			"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/serial.btw",
+			"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+			"printer": "Gainscha GS-3405T",
+			"startingPosition": 0,
+			"copies": 0,
+			"serialNumbers": 0,
+			"dataEntryControls": {
+					"Printer": "Gainscha GS-3405T",
+					"ModelInput": "%s",
+					"SerialInput": "%s"
+			}
+		}`, model_name, serial_1))
+		go PrintVakum(data, channel, &wg)
+
+		wg.Wait()
+		errorText1 := <-channel
+
+		if errorText1 != "ok" {
+			logrus.Error("error in printing: " + errorText1)
+			return errors.New("qaytadan urinib ko'ring")
+		}
+	} else {
+		logrus.Info("id ! 6 || 7")
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		channel := make(chan string, 1)
+		channel2 := make(chan string, 1)
+
+		data := []byte(fmt.Sprintf(`
+	{
+		"libraryID": "986278f7-755f-4412-940f-a89e893947de",
+		"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/serial.btw",
+		"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+		"printer": "Gainscha GS-3405T",
+		"startingPosition": 0,
+		"copies": 0,
+		"serialNumbers": 0,
+		"dataEntryControls": {
+				"Printer": "Gainscha GS-3405T",
+				"ModelInput": "%s",
+				"SerialInput": "%s"
+		}
+	}`, model_name, serial_1))
+		data2 := []byte(fmt.Sprintf(`
+	{
+		"libraryID": "986278f7-755f-4412-940f-a89e893947de",
+		"absolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/serial.btw",
+		"printRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+		"printer": "Gainscha GS-3405T",
+		"startingPosition": 0,
+		"copies": 0,
+		"serialNumbers": 0,
+		"dataEntryControls": {
+				"Printer": "Gainscha GS-3405T",
+				"ModelInput": "%s",
+				"SerialInput": "%s"
+		}
+	}`, model_name, serial_2))
+
+		go PrintVakum(data, channel, &wg)
+		go PrintVakum(data2, channel2, &wg)
+
+		wg.Wait()
+		errorText1 := <-channel
+		errorText2 := <-channel2
+
+		logrus.Info("print done")
+
+		if errorText1 != "ok" || errorText2 != "ok" {
+			logrus.Error("error in printing: " + errorText1)
+			logrus.Error("error in printing: " + errorText2)
+			return errors.New("qaytadan urinib ko'ring")
+		}
+	}
+
+	return nil
 }
 
 func (r *Repo) Metall_Serial(id int) error {

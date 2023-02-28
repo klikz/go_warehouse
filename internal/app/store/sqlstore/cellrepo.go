@@ -70,7 +70,7 @@ func (r *Repo) CellInfo(id int, quantity float64) (models.CellInfoModel, error) 
 
 func (r *Repo) CellCheckEmpty(id int) error {
 
-	quantity := 0
+	var quantity float64
 
 	err := r.store.db.QueryRow(`
 	select c.quantity from cell c where c.id = $1
@@ -206,6 +206,49 @@ func (r *Repo) CellGetByComponent(component_id int) (interface{}, error) {
 	for rows.Next() {
 		var comp EmptyCell
 		if err := rows.Scan(&comp.ID, &comp.Adress, &comp.Code, &comp.Name, &comp.Lot_Name, &comp.Quantity, &comp.Time); err != nil {
+			return nil, err
+		}
+		emptyCells = append(emptyCells, comp)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return emptyCells, nil
+}
+
+func (r *Repo) CellGetByComponentAll(component_id int) (interface{}, error) {
+
+	type EmptyCell struct {
+		ID       int     `json:"cell_id"`
+		Adress   string  `json:"adress"`
+		Code     string  `json:"component_code"`
+		Name     string  `json:"component_name"`
+		Lot_Name string  `json:"lot_name"`
+		Lot_ID   string  `json:"lot_id"`
+		Quantity float64 `json:"quantity"`
+		Time     string  `json:"time"`
+	}
+
+	rows, err := r.store.db.Query(`
+	select c.id, c.adres, c2.code, c2."name", l."name" as lot, l.id as lot_id, c.quantity, c."time" from cell c, components c2, lots l  
+	where c.component_id = $1
+	and c.component_id = c2.id 
+	and l.id = c.lot_id 
+	and l."blocked" = false
+	order by c."time" 
+	`, component_id)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var emptyCells []EmptyCell
+
+	for rows.Next() {
+		var comp EmptyCell
+		if err := rows.Scan(&comp.ID, &comp.Adress, &comp.Code, &comp.Name, &comp.Lot_Name, &comp.Lot_ID, &comp.Quantity, &comp.Time); err != nil {
 			return nil, err
 		}
 		emptyCells = append(emptyCells, comp)

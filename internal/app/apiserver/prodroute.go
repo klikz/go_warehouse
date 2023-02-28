@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
+	"io/ioutil"
 	"os"
 	"strings"
 	"warehouse/internal/app/models"
@@ -13,6 +14,43 @@ import (
 	"github.com/google/uuid"
 )
 
+func checkError(message string, err error) {
+	if err != nil {
+		fmt.Println(message, err)
+	}
+}
+
+func (s *Server) Test(c *gin.Context) {
+	resp := models.Responce{}
+	code, err := s.Store.Repo().Test()
+	if err != nil {
+		s.Logger.Error("Test: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		c.Abort()
+		return
+	}
+
+	// var data = [][]string{{code}}
+
+	// file, err := os.Create("D:/gs_code/gscode.csv")
+	// checkError("Cannot create file", err)
+	// defer file.Close()
+
+	// writer := csv.NewWriter(file)
+	// defer writer.Flush()
+
+	// for _, value := range data {
+	// 	err := writer.Write(value)
+	// 	checkError("Cannot write to file", err)
+	// }
+
+	ioutil.WriteFile("G:/gs_code/gscode.txt", []byte(code), 0644)
+	resp.Result = "ok"
+	c.JSON(200, resp)
+
+}
 func (s *Server) ProductionLogistics(c *gin.Context) {
 	resp := models.Responce{}
 	lineIncome := c.GetInt("line")
@@ -765,6 +803,154 @@ func (s *Server) MetallSerial(c *gin.Context) {
 		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
+	}
+
+	resp.Result = "ok"
+	c.JSON(200, resp)
+}
+
+func (s *Server) VakumSerial(c *gin.Context) {
+
+	resp := models.Responce{}
+	id := c.GetInt("id")
+
+	switch id {
+	case 1:
+		used_component := 359
+		gp_component_1 := 335
+		gp_component_2 := 336
+
+		err := s.Store.Repo().VakumSerialPrint(id)
+		if err != nil {
+			s.Logger.Error("VakumSerialPrint: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+		err = s.Store.Repo().VakumIscreaseComponent(used_component)
+		if err != nil {
+			s.Logger.Error("VakumIscreaseComponent: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+
+		err = s.Store.Repo().VakumAddGpComponent(gp_component_1)
+		if err != nil {
+			s.Logger.Error("VakumAddGpComponent: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+		err = s.Store.Repo().VakumAddGpComponent(gp_component_2)
+		if err != nil {
+			s.Logger.Error("VakumAddGpComponent: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+
+	case 3:
+		used_component := 358
+		gp_component_1 := 337
+		gp_component_2 := 338
+
+		err := s.Store.Repo().VakumSerialPrint(id)
+		if err != nil {
+			s.Logger.Error("VakumSerialPrint: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+		err = s.Store.Repo().VakumIscreaseComponent(used_component)
+		if err != nil {
+			s.Logger.Error("VakumIscreaseComponent: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+
+		err = s.Store.Repo().VakumAddGpComponent(gp_component_1)
+		if err != nil {
+			s.Logger.Error("VakumAddGpComponent: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+		err = s.Store.Repo().VakumAddGpComponent(gp_component_2)
+		if err != nil {
+			s.Logger.Error("VakumAddGpComponent: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+	case 6:
+		used_component := 333
+		gp_component_1 := 447
+
+		err := s.Store.Repo().VakumSerialPrint(id)
+		if err != nil {
+			s.Logger.Error("VakumSerialPrint: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+		err = s.Store.Repo().VakumIscreaseComponent(used_component)
+		if err != nil {
+			s.Logger.Error("VakumIscreaseComponent: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+
+		err = s.Store.Repo().VakumAddGpComponent(gp_component_1)
+		if err != nil {
+			s.Logger.Error("VakumAddGpComponent: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+	case 7:
+		used_component := 334
+		gp_component_1 := 448
+
+		err := s.Store.Repo().VakumSerialPrint(id)
+		if err != nil {
+			s.Logger.Error("VakumSerialPrint: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+		err = s.Store.Repo().VakumIscreaseComponent(used_component)
+		if err != nil {
+			s.Logger.Error("VakumIscreaseComponent: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+
+		err = s.Store.Repo().VakumAddGpComponent(gp_component_1)
+		if err != nil {
+			s.Logger.Error("VakumAddGpComponent: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+
 	}
 
 	resp.Result = "ok"
