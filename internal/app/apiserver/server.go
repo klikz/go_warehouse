@@ -47,45 +47,46 @@ func (s *Server) configureRouter() {
 	ware := s.Router.Group("/ware") //route for warehouse control
 	ware.Use(s.WareCheckRole())
 	{
-		ware.POST("/components", s.GetAllComponents)                          // {"token": string}
-		ware.POST("/components/outcome", s.GetAllComponentsOutCome)           // {"token": string}
-		ware.POST("/components/gp", s.GetGPCompontents)                       // {"token": string}
-		ware.POST("/components/gp/add", s.GPCompontentsAdd)                   // {"token": string, "checkpoint_id":int, "component_id":int, "model_id":int}
-		ware.POST("/components/gp/added", s.GPCompontentsAdded)               // {"token": string}
-		ware.POST("/components/gp/remove", s.GPCompontentsRemove)             // {"token": string}
-		ware.POST("/component", s.GetCompoment)                               // {"id": int, "token": string}
-		ware.POST("/component/update", s.UpdateCompoment)                     // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "id":int, "token": string}
-		ware.POST("/component/add", s.AddComponent)                           // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "token": string}
-		ware.POST("/component/delete", s.DeleteCompoment)                     // {"id":int, "token": string}
-		ware.POST("/checkpoints", s.GetAllCheckpoints)                        // {"token": string}
-		ware.POST("/checkpoint/delete", s.DeleteCheckpoint)                   // {"id":int, "token": string}
-		ware.POST("/checkpoint/add", s.AddCheckpoint)                         // {"name":string, "photo":string, "token": string}
-		ware.POST("/checkpoint/update", s.UpdateCheckpoint)                   // {"name":string, "photo":string, "id":int, "token": string}
-		ware.POST("/income", s.Income)                                        // {"component_id":int, "quantity":int, "token": string}
-		ware.POST("/income/report", s.IncomeReport)                           // {"date1":string, "date2":string, "token": string}
-		ware.POST("/types", s.Types)                                          // {"token": string}
-		ware.POST("/models", s.Models)                                        // {"token": string}
-		ware.POST("/model", s.Model)                                          // {"id":int, "token": string}
-		ware.POST("/outcome/model/check", s.OutcomeModelCheck)                // {"id":int, "token": string}
-		ware.POST("/outcome/model/submit", s.OutcomeModelSubmit)              // {"model_id":int, "quantity":float64, "token": string}
-		ware.POST("/outcome/component/check", s.OutcomeComponentCheck)        // {"component_id":int, "quantity":float64, "token": string}
-		ware.POST("/outcome/component/submit", s.OutcomeComponentSubmit)      // {"component_id":int, "checkpoint_id":int, "quantity":float64, "token": string}
-		ware.POST("/outcome/report", s.OutcomeReport)                         // {"date1":string, "date2":string, "token": string}
-		ware.POST("/model/update", s.InsertUpdateModel)                       // {"id":int, "code"string, "comment":string, "name":string, "token": string}
-		ware.POST("/bom/component", s.BomComponentInfo)                       // {"id":int, "token": string}
-		ware.POST("/bom/component/add", s.BomComponentAdd)                    // {"id":int, "token": string}
-		ware.POST("/bom/component/delete", s.BomComponentDelete)              // {"model_id":int, "component_id":int, "token": string}
-		ware.POST("/production/sector/balance", s.GetSectorBalance)           // {"line":int, "token": string}
-		ware.POST("/production/sector/balance/update", s.SectorBalanceUpdate) // {"line":int, "component_id": int, "quantity": float64, "token": string}
-		ware.POST("/gscode/get", s.GetKeys)                                   // {"token": string}
-		ware.POST("/akt/input", s.AktInput)                                   // {"token": string, "component_id": int, "comment": string, "quantity": float64, "checkpoint_id": int}
-		ware.POST("/akt/input/ware", s.AktInputWare)                          // {"token": string, "component_id": int, "comment": string, "quantity": float64, "checkpoint_id": int}
-		ware.POST("/akt/report", s.AktReport)                                 // {"date1":string, "date2":string, "token": string}
-		ware.POST("/cell/getempty", s.CellGetEmpty)                           // {"lot_id":int, "component_id":int, "token": string}
-		ware.POST("/cell/getall", s.CellGetAll)                               // {"token": string}
-		ware.POST("/cell/addcomponent", s.CellAddComponent)                   // {"lot_id":int, "component_id":int, "cell_id": int, "quantity": float64, "token": string}
-		ware.POST("/cell/getbycomponent", s.CellGetByComponent)               // {"lot_id":int, "component_id":int, "cell_id": int, "quantity": float64, "token": string}
-		ware.POST("/cell/getbycomponent/all", s.CellGetByComponentAll)        // {"lot_id":int, "component_id":int, "cell_id": int, "quantity": float64, "token": string}
+		ware.POST("/components", s.GetAllComponents)                                     // {"token": string}
+		ware.POST("/components/outcome", s.GetAllComponentsOutCome)                      // {"token": string}
+		ware.POST("/components/outcome/byquantity", s.GetAllComponentsOutComeByQuantity) // {"token": string}
+		ware.POST("/components/gp", s.GetGPCompontents)                                  // {"token": string}
+		ware.POST("/components/gp/add", s.GPCompontentsAdd)                              // {"token": string, "checkpoint_id":int, "component_id":int, "model_id":int}
+		ware.POST("/components/gp/added", s.GPCompontentsAdded)                          // {"token": string}
+		ware.POST("/components/gp/remove", s.GPCompontentsRemove)                        // {"token": string}
+		ware.POST("/component", s.GetCompoment)                                          // {"id": int, "token": string}
+		ware.POST("/component/update", s.UpdateCompoment)                                // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "id":int, "token": string}
+		ware.POST("/component/add", s.AddComponent)                                      // {"code":string, "name":string, "checkpoint_id":int, "unit":string, "photo":string, "specs":string, "type_id":int, "weight":float64, "token": string}
+		ware.POST("/component/delete", s.DeleteCompoment)                                // {"id":int, "token": string}
+		ware.POST("/checkpoints", s.GetAllCheckpoints)                                   // {"token": string}
+		ware.POST("/checkpoint/delete", s.DeleteCheckpoint)                              // {"id":int, "token": string}
+		ware.POST("/checkpoint/add", s.AddCheckpoint)                                    // {"name":string, "photo":string, "token": string}
+		ware.POST("/checkpoint/update", s.UpdateCheckpoint)                              // {"name":string, "photo":string, "id":int, "token": string}
+		ware.POST("/income", s.Income)                                                   // {"component_id":int, "quantity":int, "token": string}
+		ware.POST("/income/report", s.IncomeReport)                                      // {"date1":string, "date2":string, "token": string}
+		ware.POST("/types", s.Types)                                                     // {"token": string}
+		ware.POST("/models", s.Models)                                                   // {"token": string}
+		ware.POST("/model", s.Model)                                                     // {"id":int, "token": string}
+		ware.POST("/outcome/model/check", s.OutcomeModelCheck)                           // {"id":int, "token": string}
+		ware.POST("/outcome/model/submit", s.OutcomeModelSubmit)                         // {"model_id":int, "quantity":float64, "token": string}
+		ware.POST("/outcome/component/check", s.OutcomeComponentCheck)                   // {"component_id":int, "quantity":float64, "token": string}
+		ware.POST("/outcome/component/submit", s.OutcomeComponentSubmit)                 // {"component_id":int, "checkpoint_id":int, "quantity":float64, "token": string}
+		ware.POST("/outcome/report", s.OutcomeReport)                                    // {"date1":string, "date2":string, "token": string}
+		ware.POST("/model/update", s.InsertUpdateModel)                                  // {"id":int, "code"string, "comment":string, "name":string, "token": string}
+		ware.POST("/bom/component", s.BomComponentInfo)                                  // {"id":int, "token": string}
+		ware.POST("/bom/component/add", s.BomComponentAdd)                               // {"id":int, "token": string}
+		ware.POST("/bom/component/delete", s.BomComponentDelete)                         // {"model_id":int, "component_id":int, "token": string}
+		ware.POST("/production/sector/balance", s.GetSectorBalance)                      // {"line":int, "token": string}
+		ware.POST("/production/sector/balance/update", s.SectorBalanceUpdate)            // {"line":int, "component_id": int, "quantity": float64, "token": string}
+		ware.POST("/gscode/get", s.GetKeys)                                              // {"token": string}
+		ware.POST("/akt/input", s.AktInput)                                              // {"token": string, "component_id": int, "comment": string, "quantity": float64, "checkpoint_id": int}
+		ware.POST("/akt/input/ware", s.AktInputWare)                                     // {"token": string, "component_id": int, "comment": string, "quantity": float64, "checkpoint_id": int}
+		ware.POST("/akt/report", s.AktReport)                                            // {"date1":string, "date2":string, "token": string}
+		ware.POST("/cell/getempty", s.CellGetEmpty)                                      // {"lot_id":int, "component_id":int, "token": string}
+		ware.POST("/cell/getall", s.CellGetAll)                                          // {"token": string}
+		ware.POST("/cell/addcomponent", s.CellAddComponent)                              // {"lot_id":int, "component_id":int, "cell_id": int, "quantity": float64, "token": string}
+		ware.POST("/cell/getbycomponent", s.CellGetByComponent)                          // {"lot_id":int, "component_id":int, "cell_id": int, "quantity": float64, "token": string}
+		ware.POST("/cell/getbycomponent/all", s.CellGetByComponentAll)                   // {"lot_id":int, "component_id":int, "cell_id": int, "quantity": float64, "token": string}
 	}
 
 	global := s.Router.Group("/api") //Route for global use
@@ -163,7 +164,6 @@ func (s *Server) configureRouter() {
 		production.POST("/logistics", s.ProductionLogistics)                // {"line":int, "checkpoint_id":int, "serial": string}  //line-> income, checkpoint->outcome
 		production.POST("/check_remont", s.CheckRemont)                     // {"serial": string}
 		production.POST("/today/statistics", s.TodayStatistics)             // {"serial": string}
-		production.POST("/test", s.Test)                                    // {"serial": string}
 		// production.POST("/galileo/tcp", s.GalileoTCP)                      // {"id", int}
 	}
 

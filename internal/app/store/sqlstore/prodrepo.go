@@ -234,7 +234,7 @@ func PrintLocal(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
 			return
 		}
 		// logrus.Info("Printing started")
-		url := "http://192.168.5.118/BarTender/api/v1/print" //for test
+		url := "http://192.168.5.83/BarTender/api/v1/print" //for test
 		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 		if err != nil {
 			channel <- err.Error()
@@ -1309,6 +1309,14 @@ func (r *Repo) GetPackingToday() (interface{}, error) {
 
 }
 
+func (r *Repo) GetPackingToday2() int {
+
+	count := 0
+
+	r.store.db.QueryRow(`select count(*) from packing p where p."time" >= current_date `).Scan(&count)
+	return count
+}
+
 func (r *Repo) GetPackingTodaySerial() (interface{}, error) {
 
 	type PackingTodaySerial struct {
@@ -1441,6 +1449,18 @@ func (r *Repo) GetPackingTodayModels() (interface{}, error) {
 			return byModel, nil
 		}
 	}
+}
+
+func (r *Repo) GetPackingCountOfMonth() (int, error) {
+
+	count := 0
+
+	err := r.store.db.QueryRow(`select count(*) from packing p where date_trunc('month', p."time") = date_trunc('month', current_date)`).Scan(&count)
+	if err != nil {
+		return count, err
+	}
+
+	return count, nil
 }
 
 func (r *Repo) GetLines() (interface{}, error) {
@@ -2137,7 +2157,7 @@ func (r *Repo) SerialInput(line int, serial string) error {
 		if err != nil {
 			return err
 		}
-		logrus.Info("from raspberry: ", req)
+		logrus.Info("from raspberry: ", req, " line id: ", line)
 		return errors.New("serial xato")
 	}
 	type product_id struct {
@@ -2175,7 +2195,7 @@ func (r *Repo) SerialInput(line int, serial string) error {
 			if err != nil {
 				return err
 			}
-			logrus.Info("from raspberry: ", req)
+			logrus.Info("from raspberry: ", req, " line id: ", line)
 			return errors.New("sborkada reg qilinmagan")
 		}
 	case 11:
@@ -2287,14 +2307,14 @@ func (r *Repo) SerialInput(line int, serial string) error {
 		if err != nil {
 			return err
 		}
-		logrus.Info("from raspberry: ", req)
+		logrus.Info("from raspberry: ", req, " line id: ", line)
 
 		return errors.New("serial kiritilgan")
 	} else {
 		rows, err := r.store.db.Query("insert into production (model_id, serial, checkpoint_id) values ($1, $2, $3)", modelInfo.id, serial, line)
 
 		if err != nil {
-			logrus.Info("SerialInput Setpin err: ", err)
+			logrus.Error("SerialInput Setpin err: ", err)
 		}
 		defer rows.Close()
 		err2 := r.debitFromLine(modelInfo.id, line)
@@ -2306,7 +2326,7 @@ func (r *Repo) SerialInput(line int, serial string) error {
 			logrus.Info("SerialInput rasp err: ", err)
 			return err
 		}
-		logrus.Info("from raspberry: ", req)
+		logrus.Info("from raspberry: ", req, " line id: ", line)
 
 		for i := 0; i < len(GPID); i++ {
 			err := r.GPComponentAddToLine(line, GPID[i])
@@ -2436,7 +2456,7 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 	}
 	logrus.Info("check gs code")
 	var check interface{}
-	if err := r.store.db.QueryRow(`select * from gs g where g.model = $1 and g.status  = true `, modelId.id).Scan(&check); err != nil {
+	if err := r.store.db.QueryRow(`select g.id from gs g where g.model = $1 and g.status  = true `, modelId.id).Scan(&check); err != nil {
 		logrus.Error("error check: ", err)
 		if err == sql.ErrNoRows {
 			return errors.New("GS kod tugagan yuklash kerak")

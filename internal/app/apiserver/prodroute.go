@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
-	"io/ioutil"
 	"os"
 	"strings"
 	"warehouse/internal/app/models"
@@ -14,43 +13,43 @@ import (
 	"github.com/google/uuid"
 )
 
-func checkError(message string, err error) {
-	if err != nil {
-		fmt.Println(message, err)
-	}
-}
+// func checkError(message string, err error) {
+// 	if err != nil {
+// 		fmt.Println(message, err)
+// 	}
+// }
 
-func (s *Server) Test(c *gin.Context) {
-	resp := models.Responce{}
-	code, err := s.Store.Repo().Test()
-	if err != nil {
-		s.Logger.Error("Test: ", err)
-		resp.Result = "error"
-		resp.Err = err.Error()
-		c.JSON(200, resp)
-		c.Abort()
-		return
-	}
+// func (s *Server) Test(c *gin.Context) {
+// 	resp := models.Responce{}
+// 	code, err := s.Store.Repo().Test()
+// 	if err != nil {
+// 		s.Logger.Error("Test: ", err)
+// 		resp.Result = "error"
+// 		resp.Err = err.Error()
+// 		c.JSON(200, resp)
+// 		c.Abort()
+// 		return
+// 	}
 
-	// var data = [][]string{{code}}
+// 	// var data = [][]string{{code}}
 
-	// file, err := os.Create("D:/gs_code/gscode.csv")
-	// checkError("Cannot create file", err)
-	// defer file.Close()
+// 	// file, err := os.Create("D:/gs_code/gscode.csv")
+// 	// checkError("Cannot create file", err)
+// 	// defer file.Close()
 
-	// writer := csv.NewWriter(file)
-	// defer writer.Flush()
+// 	// writer := csv.NewWriter(file)
+// 	// defer writer.Flush()
 
-	// for _, value := range data {
-	// 	err := writer.Write(value)
-	// 	checkError("Cannot write to file", err)
-	// }
+// 	// for _, value := range data {
+// 	// 	err := writer.Write(value)
+// 	// 	checkError("Cannot write to file", err)
+// 	// }
 
-	ioutil.WriteFile("G:/gs_code/gscode.txt", []byte(code), 0644)
-	resp.Result = "ok"
-	c.JSON(200, resp)
+// 	ioutil.WriteFile("G:/gs_code/gscode.txt", []byte(code), 0644)
+// 	resp.Result = "ok"
+// 	c.JSON(200, resp)
 
-}
+// }
 func (s *Server) ProductionLogistics(c *gin.Context) {
 	resp := models.Responce{}
 	lineIncome := c.GetInt("line")
@@ -91,7 +90,7 @@ func (s *Server) GetPlan(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("PlanCountToday: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -100,7 +99,7 @@ func (s *Server) GetPlan(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("PlanByModelToday: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -124,7 +123,7 @@ func (s *Server) GetLast(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetLast: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -140,7 +139,7 @@ func (s *Server) GetStatus(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetLast: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -156,7 +155,7 @@ func (s *Server) GetToday(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetLast: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -174,7 +173,7 @@ func (s *Server) GetTodayModels(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetTodayModels: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -189,7 +188,7 @@ func (s *Server) GetSectorBalance(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetSectorBalance: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -204,7 +203,7 @@ func (s *Server) GetSectorBalanceGP(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetSectorBalance: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -226,7 +225,7 @@ func (s *Server) SectorBalanceUpdate(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetSectorBalanceUpdate: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -241,7 +240,7 @@ func (s *Server) GetPackingLast(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetPackingLast: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -254,7 +253,7 @@ func (s *Server) GetPackingToday(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetPackingToday: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -267,7 +266,7 @@ func (s *Server) GetPackingTodaySerial(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetPackingTodaySerial: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -280,7 +279,7 @@ func (s *Server) GetPackingTodayModels(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetPackingTodayModels: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -293,7 +292,7 @@ func (s *Server) GetLines(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetLines: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -306,7 +305,7 @@ func (s *Server) GetDefectsTypes(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetDefectsTypes: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -323,7 +322,7 @@ func (s *Server) DeleteDefectsTypes(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetDefectsTypes: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -342,7 +341,7 @@ func (s *Server) AddDefectsTypes(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("AddDefectsTypes: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -455,7 +454,7 @@ func (s *Server) GetByDateSerial(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetByDateSerial: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -473,7 +472,7 @@ func (s *Server) GetByHoursSerial(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetByDateSerial: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -490,7 +489,7 @@ func (s *Server) GetCountByDate(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetByDate: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -507,7 +506,7 @@ func (s *Server) GetCountByHours(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetByDate: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -526,7 +525,7 @@ func (s *Server) GetByDateModels(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetByDateModels: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -543,7 +542,7 @@ func (s *Server) GetByHoursModels(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetByHoursModels: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -556,7 +555,7 @@ func (s *Server) GetRemont(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetRemont: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -585,7 +584,7 @@ func (s *Server) GetRemontToday(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetRemontToday: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -601,7 +600,7 @@ func (s *Server) GetRemontByDate(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetByDate: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -640,7 +639,7 @@ func (s *Server) UpdateRemont(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetByDate: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -686,15 +685,15 @@ func (s *Server) PackingSerialInput(c *gin.Context) {
 	// 	return
 	// }
 
-	chechRemontStatus := s.Store.Repo().CheckRemontStatusProduct(serial)
+	// chechRemontStatus := s.Store.Repo().CheckRemontStatusProduct(serial)
 
-	if chechRemontStatus > 0 {
-		s.Logger.Error("CheckRemontStatusProduct: ", serial)
-		resp.Result = "error"
-		resp.Err = "Remont tugallanmagan"
-		c.JSON(200, resp)
-		return
-	}
+	// if chechRemontStatus > 0 {
+	// 	s.Logger.Error("CheckRemontStatusProduct: ", serial)
+	// 	resp.Result = "error"
+	// 	resp.Err = "Remont tugallanmagan"
+	// 	c.JSON(200, resp)
+	// 	return
+	// }
 
 	err := s.Store.Repo().PackingSerialInput(serial, retry) //, packing)
 	if err != nil {

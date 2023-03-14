@@ -27,6 +27,12 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 		FreonModels      interface{} `json:"freon_models"`
 		LaboratoryModels interface{} `json:"laboratory_models"`
 		PackingModels    interface{} `json:"packing_models"`
+		PlanMonth        int         `json:"plan_month"`
+		CountMonth       int         `json:"count_month"`
+		PercentMonth     float64     `json:"percent_month"`
+		PlanDaily        int         `json:"plan_daily"`
+		CountDaily       int         `json:"count_daily"`
+		PercentDaily     float64     `json:"percent_daily"`
 	}
 
 	resp := models.Responce{}
@@ -36,7 +42,7 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetCounters: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -45,7 +51,7 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("allInfo.DefectCounters: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -54,7 +60,7 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("allInfo.MetallModels: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -63,7 +69,7 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("allInfo.SborkaModels: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -72,7 +78,7 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("allInfo.PpuModels: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -81,7 +87,7 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("allInfo.AgregatModels: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -90,7 +96,7 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("allInfo.FreonModels: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -99,7 +105,7 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("allInfo.LaboratoryModels: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -108,12 +114,28 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("allInfo.PackingModels: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	allInfo.CountMonth, err = s.Store.Repo().GetPackingCountOfMonth()
+	if err != nil {
+		s.Logger.Error("allInfo.GetPackingCountOfMonth: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
 
 	allInfo.Counters = counters
+	allInfo.PlanMonth = 15000
+	allInfo.PercentMonth = float64((500 * 100) / allInfo.PlanMonth)
+	allInfo.PlanDaily = 500
+	allInfo.CountDaily = s.Store.Repo().GetPackingToday2()
+	allInfo.PercentDaily = float64((allInfo.CountDaily * 100) / allInfo.PlanDaily)
+
+	// s.Logger.Info("percent: ", float64((5000*100)/allInfo.Plan))
 
 	resp.Result = "ok"
 	resp.Data = allInfo
@@ -130,6 +152,15 @@ func (s *Server) CellAddComponent(c *gin.Context) {
 	err := s.Store.Repo().CellAddComponent(quantity, component_id, lot_id, cell_id)
 	if err != nil {
 		s.Logger.Error("CellAddComponent: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	err = s.Store.Repo().UpdateMinusComponentIncome(component_id, quantity)
+	if err != nil {
+		s.Logger.Error("UpdateMinusComponentIncome: ", err)
 		resp.Result = "error"
 		resp.Err = err.Error()
 		c.JSON(200, resp)
@@ -226,7 +257,7 @@ func (s *Server) AktReport(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("AktReport: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -275,7 +306,7 @@ func (s *Server) AktInput(c *gin.Context) {
 		if err := s.Store.Repo().SectorBalanceUpdateByQuantity(account.Checkpoint_id, account.Component_id, account.Quantity); err != nil {
 			s.Logger.Error("AktInput SectorBalanceUpdateByQuantity: ", err)
 			resp.Result = "error"
-			resp.Err = "Wrong Credentials"
+			resp.Err = err.Error()
 			c.JSON(200, resp)
 			c.Abort()
 			return
@@ -286,7 +317,7 @@ func (s *Server) AktInput(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("AktInput: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		c.Abort()
 		return
@@ -365,7 +396,7 @@ func (s *Server) AktInputWare(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("AktInput: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		c.Abort()
 		return
@@ -378,7 +409,7 @@ func (s *Server) AktInputWare(c *gin.Context) {
 	if err := s.Store.Repo().OutcomeInsert(account.Component_id, account.Checkpoint_id, account.Quantity, tString); err != nil {
 		s.Logger.Error("OutcomeInsert: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		c.Abort()
 		return
@@ -395,7 +426,7 @@ func (s *Server) GetAllComponents(c *gin.Context) {
 		resp := models.Responce{}
 		s.Logger.Error("GetAllComponents: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -408,7 +439,21 @@ func (s *Server) GetAllComponentsOutCome(c *gin.Context) {
 		resp := models.Responce{}
 		s.Logger.Error("GetAllComponents: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+	c.JSON(200, data)
+}
+
+func (s *Server) GetAllComponentsOutComeByQuantity(c *gin.Context) {
+
+	data, err := s.Store.Repo().GetAllComponentsOutComeByQuantity()
+	if err != nil {
+		resp := models.Responce{}
+		s.Logger.Error("GetAllComponents: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -421,7 +466,7 @@ func (s *Server) GetGPCompontents(c *gin.Context) {
 		resp := models.Responce{}
 		s.Logger.Error("GetGPCompontents: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -439,7 +484,7 @@ func (s *Server) GPCompontentsAdd(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GPCompontentsAdd: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -457,7 +502,7 @@ func (s *Server) GPCompontentsRemove(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GPCompontentsRemove: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -473,7 +518,7 @@ func (s *Server) GPCompontentsAdded(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GPCompontentsAdded: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -492,7 +537,7 @@ func (s *Server) GetCompoment(c *gin.Context) {
 		resp := models.Responce{}
 		s.Logger.Error("GetComponent: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -521,7 +566,7 @@ func (s *Server) UpdateCompoment(c *gin.Context) {
 	if component.ID == 0 {
 		s.Logger.Error("GetComponent: ", "blank id")
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = "component id == 0"
 		c.JSON(200, resp)
 		return
 	}
@@ -530,7 +575,7 @@ func (s *Server) UpdateCompoment(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetComponent: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -557,15 +602,15 @@ func (s *Server) AddComponent(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("AddComponent: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
 	s.Logger.Info("id: ", id)
 	if id > 0 {
-		err := s.Store.Repo().AddComponentComponentsIncome(id)
+		err := s.Store.Repo().AddComponentsIncome(id)
 		if err != nil {
-			s.Logger.Error("AddComponentComponentsIncome: ", err)
+			s.Logger.Error("AddComponentsIncome: ", err)
 			resp.Result = "error"
 			resp.Err = err.Error()
 			c.JSON(200, resp)
@@ -584,7 +629,7 @@ func (s *Server) DeleteCompoment(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetComponent: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -598,7 +643,7 @@ func (s *Server) GetAllCheckpoints(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetAllCheckpoints: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -614,7 +659,7 @@ func (s *Server) DeleteCheckpoint(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("DeleteCheckpoints: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -633,7 +678,7 @@ func (s *Server) AddCheckpoint(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("AddCheckpoint: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -653,7 +698,7 @@ func (s *Server) UpdateCheckpoint(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("UpdateCheckpoint: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -665,13 +710,22 @@ func (s *Server) Income(c *gin.Context) {
 
 	resp := models.Responce{}
 	quantity := c.GetFloat64("quantity")
-	id := c.GetInt(("id"))
+	id := c.GetInt("id")
 
 	err := s.Store.Repo().Income(id, quantity)
 	if err != nil {
 		s.Logger.Error("Income: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	err = s.Store.Repo().UpdateComponentIncome(id, quantity)
+	if err != nil {
+		s.Logger.Error("UpdateComponentIncome: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -688,7 +742,7 @@ func (s *Server) IncomeReport(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("IncomeReport: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -704,7 +758,7 @@ func (s *Server) Types(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("Types: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -719,7 +773,7 @@ func (s *Server) Models(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("Models: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -735,7 +789,7 @@ func (s *Server) Model(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("Model: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -754,7 +808,7 @@ func (s *Server) InsertUpdateModel(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("InsertUpdateModel: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -772,7 +826,7 @@ func (s *Server) OutcomeModelCheck(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("OutcomeModelCheck: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -863,7 +917,7 @@ func (s *Server) OutcomeReport(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("OutcomeReport: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -927,7 +981,7 @@ func (s *Server) BomComponentInfo(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("BomComponentInfo: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -946,7 +1000,7 @@ func (s *Server) BomComponentAdd(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("BomComponentAdd: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -964,7 +1018,7 @@ func (s *Server) BomComponentDelete(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("BomComponentDelete: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
@@ -1024,7 +1078,7 @@ func (s *Server) GsCodeFile(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("WareCheckRole Wrong Token: ", data.Token, " error: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(401, resp)
 		c.Abort()
 		return
@@ -1034,7 +1088,7 @@ func (s *Server) GsCodeFile(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("WareCheckRole: ", data.Token, " error: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(401, resp)
 		c.Abort()
 		return
@@ -1043,7 +1097,7 @@ func (s *Server) GsCodeFile(c *gin.Context) {
 	if !res {
 		s.Logger.Error("WareCheckRole: ", data.Token, " error: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(401, resp)
 		c.Abort()
 		return
@@ -1108,7 +1162,7 @@ func (s *Server) GetKeys(c *gin.Context) {
 	if err != nil {
 		s.Logger.Error("GetKeys: ", err)
 		resp.Result = "error"
-		resp.Err = "Wrong Credentials"
+		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}

@@ -13,8 +13,8 @@ func (s *Server) Create(c *gin.Context) {
 
 	user := models.User{}
 	resp := models.Responce{}
-	email := c.GetString(("email"))
-	password := c.GetString(("password"))
+	email := c.GetString("email")
+	password := c.GetString("password")
 	user.Email = email
 	user.Password = password
 

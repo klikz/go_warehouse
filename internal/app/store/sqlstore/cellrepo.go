@@ -98,7 +98,7 @@ func (r *Repo) CellGetEmpty(id, component_id int) (interface{}, error) {
 		Lot_id   int     `json:"lot_id"`
 	}
 
-	print("id: ", id, " component_id: ", component_id)
+	// print("id: ", id, " component_id: ", component_id)
 
 	rows, err := r.store.db.Query(`
 	select c.id, c.adres, 
@@ -107,7 +107,7 @@ func (r *Repo) CellGetEmpty(id, component_id int) (interface{}, error) {
 	case when c.lot_id is null then 0 else c.lot_id end
 	from cell c
 	where c.lot_id = $1 and c.component_id = $2 or c.quantity = 0
-	order by c.id 
+	order by c.adres 
 	`, id, component_id)
 	if err != nil {
 		return nil, err

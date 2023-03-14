@@ -155,7 +155,7 @@ func (r *Repo) GPCompontentsRemove(id int) error {
 func (r *Repo) GetAllComponentsOutcome() (interface{}, error) {
 	rows, err := r.store.db.Query(`
 	select c.available, c.id, c.code, c."name", c2."name" as Checkpoint, c2.id as checkpoint_id,  c.unit, c.specs, c.photo, to_char(c."time", 'DD-MM-YYYY HH24:MI') "time", 
-	t."name" as type, t.id as type_id, c.weight, c.inner_code 
+	t."name" as type, t.id as type_id, c.weight, c.inner_code, c.income 
 	from components c 
 	join checkpoints c2 on c2.id = c."checkpoint" join "types" t on t.id  = c."type" 
 	where c.status = 1 and not c."type" = 3
@@ -170,7 +170,36 @@ func (r *Repo) GetAllComponentsOutcome() (interface{}, error) {
 	for rows.Next() {
 		var comp models.Component
 		if err := rows.Scan(&comp.Available, &comp.ID, &comp.Code,
-			&comp.Name, &comp.Checkpoint, &comp.Checkpoint_id, &comp.Unit, &comp.Specs, &comp.Photo, &comp.Time, &comp.Type, &comp.Type_id, &comp.Weight, &comp.InnerCode); err != nil {
+			&comp.Name, &comp.Checkpoint, &comp.Checkpoint_id, &comp.Unit, &comp.Specs, &comp.Photo, &comp.Time, &comp.Type, &comp.Type_id, &comp.Weight, &comp.InnerCode, &comp.Component_income); err != nil {
+			return components, err
+		}
+		components = append(components, comp)
+	}
+	if err = rows.Err(); err != nil {
+		return components, err
+	}
+	return components, nil
+}
+
+func (r *Repo) GetAllComponentsOutComeByQuantity() (interface{}, error) {
+	rows, err := r.store.db.Query(`
+	select c.available, c.id, c.code, c."name", c2."name" as Checkpoint, c2.id as checkpoint_id,  c.unit, c.specs, c.photo, to_char(c."time", 'DD-MM-YYYY HH24:MI') "time", 
+	t."name" as type, t.id as type_id, c.weight, c.inner_code, c.income 
+	from components c 
+	join checkpoints c2 on c2.id = c."checkpoint" join "types" t on t.id  = c."type" 
+	where c.status = 1 and not c."type" = 3
+	order by c.income desc `)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var components []models.Component
+
+	for rows.Next() {
+		var comp models.Component
+		if err := rows.Scan(&comp.Available, &comp.ID, &comp.Code,
+			&comp.Name, &comp.Checkpoint, &comp.Checkpoint_id, &comp.Unit, &comp.Specs, &comp.Photo, &comp.Time, &comp.Type, &comp.Type_id, &comp.Weight, &comp.InnerCode, &comp.Component_income); err != nil {
 			return components, err
 		}
 		components = append(components, comp)
@@ -282,7 +311,7 @@ func (r *Repo) AddComponent(c *models.Component) (int, error) {
 	return id, nil
 }
 
-func (r *Repo) AddComponentComponentsIncome(id int) error {
+func (r *Repo) AddComponentsIncome(id int) error {
 	_, err := r.store.db.Exec(`insert into component_income (component_id) values ($1)`, id)
 	if err != nil {
 		return err
@@ -393,23 +422,48 @@ func (r *Repo) Income(component_id int, quantity float64) error {
 	return nil
 }
 
+func (r *Repo) UpdateComponentIncome(component_id int, quantity float64) error {
+
+	_, err := r.store.db.Exec(`
+	update components set income = income + $1 where id = $2
+	`, quantity, component_id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *Repo) UpdateMinusComponentIncome(component_id int, quantity float64) error {
+
+	_, err := r.store.db.Exec(`
+	update components set income = income - $1 where id = $2
+	`, quantity, component_id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *Repo) IncomeReport(date1, date2 string) (interface{}, error) {
 
 	type Report struct {
+		ID       string  `json:"id"`
 		Code     string  `json:"code"`
 		Name     string  `json:"name"`
 		Quantity float64 `json:"quantity"`
 		Time     string  `json:"time"`
 	}
-	logrus.Info(fmt.Sprintf(`
-	select c.code, c."name", i.quantity, to_char(i."create", 'DD-MM-YYYY HH24-MI') time from income i, components c 
-	where 
-		i."create"::date>=to_date(%s, 'YYYY-MM-DD') 
-		and i."create"::date<=to_date(%s, 'YYYY-MM-DD') 
-		and c.id = i.component_id 
-	`, date1, date2))
+	// logrus.Info(fmt.Sprintf(`
+	// select c.code, c."name", i.quantity, to_char(i."create", 'DD-MM-YYYY HH24-MI') time from income i, components c
+	// where
+	// 	i."create"::date>=to_date(%s, 'YYYY-MM-DD')
+	// 	and i."create"::date<=to_date(%s, 'YYYY-MM-DD')
+	// 	and c.id = i.component_id
+	// `, date1, date2))
 	rows, err := r.store.db.Query(`
-	select c.code, c."name", i.quantity, to_char(i."create", 'DD-MM-YYYY HH24-MI') time from income i, components c 
+	select i.id, c.code, c."name", i.quantity, to_char(i."create", 'DD-MM-YYYY HH24-MI') time from income i, components c 
 	where 
 		i."create"::date>=to_date($1, 'YYYY-MM-DD') 
 		and i."create"::date<=to_date($2, 'YYYY-MM-DD') 
@@ -425,7 +479,7 @@ func (r *Repo) IncomeReport(date1, date2 string) (interface{}, error) {
 
 	for rows.Next() {
 		var comp Report
-		if err := rows.Scan(&comp.Code, &comp.Name, &comp.Quantity, &comp.Time); err != nil {
+		if err := rows.Scan(&comp.ID, &comp.Code, &comp.Name, &comp.Quantity, &comp.Time); err != nil {
 			return nil, err
 		}
 		report = append(report, comp)
@@ -762,6 +816,7 @@ func (r *Repo) OutcomeModelSubmit(model_id int, quantity float64) error {
 func (r *Repo) OutcomeReport(date1, date2 string) (interface{}, error) {
 
 	type Report struct {
+		ID         string  `json:"id"`
 		Code       string  `json:"code"`
 		Name       string  `json:"name"`
 		Quantity   float64 `json:"quantity"`
@@ -769,14 +824,14 @@ func (r *Repo) OutcomeReport(date1, date2 string) (interface{}, error) {
 		Time       string  `json:"time"`
 		Comment    string  `json:"comment"`
 	}
-
 	rows, err := r.store.db.Query(`
-	select c.code, c."name", i.quantity, c2."name" as checkpoint, to_char(i."create", 'DD-MM-YYYY HH12:MI') time, i.comment from outcome i, components c, checkpoints c2 
-	where 
-		i."create"::date>=to_date($1, 'YYYY-MM-DD') 
-		and i."create"::date<=to_date($2, 'YYYY-MM-DD') 
-		and c.id = i.component_id 
-		and c2.id = i.checkpoint_id 
+	select i.id, c.code, c."name", i.quantity, c2."name" as checkpoint, to_char(i."create", 'DD-MM-YYYY HH12:MI') time, 
+	case when i.comment is null then ' ' else i.comment end   
+	from outcome i, components c, checkpoints c2 
+	where i."create"::date>=to_date($1, 'YYYY-MM-DD') 
+	and i."create"::date<=to_date($2, 'YYYY-MM-DD') 
+	and c.id = i.component_id 
+	and c2.id = i.checkpoint_id  
 	`, date1, date2)
 	if err != nil {
 		return nil, err
@@ -788,7 +843,7 @@ func (r *Repo) OutcomeReport(date1, date2 string) (interface{}, error) {
 
 	for rows.Next() {
 		var comp Report
-		if err := rows.Scan(&comp.Code, &comp.Name, &comp.Quantity, &comp.Checkpoint, &comp.Time, &comp.Comment); err != nil {
+		if err := rows.Scan(&comp.ID, &comp.Code, &comp.Name, &comp.Quantity, &comp.Checkpoint, &comp.Time, &comp.Comment); err != nil {
 			return nil, err
 		}
 		report = append(report, comp)
