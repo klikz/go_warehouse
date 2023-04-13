@@ -12,7 +12,7 @@ import (
 func main() {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"date1": time.Now().Local().Add(time.Hour * time.Duration(0)),
-		"date2": time.Now().Local().Add(time.Hour * time.Duration(720)),
+		"date2": time.Now().Local().Add(time.Hour * time.Duration(800)),
 		"nbf":   time.Date(2015, 10, 10, 12, 0, 0, 0, time.UTC).Unix(),
 	})
 	// Sign and get the complete encoded token as a string using the secret

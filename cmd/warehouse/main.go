@@ -65,7 +65,7 @@ func checkLicenseTime() {
 }
 
 func executeCronJob() {
-	gocron.Every(20).Second().Do(checkLicenseTime)
+	gocron.Every(5).Second().Do(checkLicenseTime)
 	<-gocron.Start()
 }
 

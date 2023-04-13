@@ -1,3 +1,2 @@
 saddress=":8000"
 logLevel="error"
-database_url="host=localhost database='warehouse' user='postgres' password='postgres' sslmode='disable'"

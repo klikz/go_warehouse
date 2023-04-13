@@ -88,7 +88,7 @@ func (r *Repo) CellCheckEmpty(id int) error {
 	return nil
 }
 
-func (r *Repo) CellGetEmpty(id, component_id int) (interface{}, error) {
+func (r *Repo) CellGetEmpty(component_id int) (interface{}, error) {
 
 	type EmptyCell struct {
 		ID       int     `json:"id"`
@@ -106,9 +106,21 @@ func (r *Repo) CellGetEmpty(id, component_id int) (interface{}, error) {
 	c.quantity, 
 	case when c.lot_id is null then 0 else c.lot_id end
 	from cell c
-	where c.lot_id = $1 and c.component_id = $2 or c.quantity = 0
+	where c.component_id = $1 or c.quantity = 0
 	order by c.adres 
-	`, id, component_id)
+	`, component_id)
+
+	// lot tekshirish uchun
+	// rows, err := r.store.db.Query(`
+	// select c.id, c.adres,
+	// case when (select c3.code from components c3 where c3.id = c.component_id) is null then 'empty' else (select c3.code from components c3 where c3.id = c.component_id) end,
+	// c.quantity,
+	// case when c.lot_id is null then 0 else c.lot_id end
+	// from cell c
+	// where c.lot_id = $1 and c.component_id = $2 or c.quantity = 0
+	// order by c.adres
+	// `, id, component_id)
+
 	if err != nil {
 		return nil, err
 	}
@@ -129,6 +141,58 @@ func (r *Repo) CellGetEmpty(id, component_id int) (interface{}, error) {
 	}
 
 	return emptyCells, nil
+}
+
+func (r *Repo) CellGetNoFilter(comp_name string) (interface{}, error) {
+
+	type EmptyCell struct {
+		ID       int     `json:"id"`
+		Adress   string  `json:"adress"`
+		Code     string  `json:"component_code"`
+		Quantity float64 `json:"quantity"`
+		Lot_id   int     `json:"lot_id"`
+	}
+
+	// print("id: ", id, " component_id: ", component_id)
+
+	rows, err := r.store.db.Query(`
+	select c.id, c.adres, 
+	case when (select c3.code from components c3 where c3.id = c.component_id) is null then 'empty' else (select c3.code from components c3 where c3.id = c.component_id) end, 
+	c.quantity, 
+	case when c.lot_id is null then 0 else c.lot_id end
+	from cell c
+	where c.adres = $1
+	`, comp_name)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var emptyCells []EmptyCell
+
+	for rows.Next() {
+		var comp EmptyCell
+		if err := rows.Scan(&comp.ID, &comp.Adress, &comp.Code, &comp.Quantity, &comp.Lot_id); err != nil {
+			return nil, err
+		}
+		emptyCells = append(emptyCells, comp)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return emptyCells, nil
+}
+
+func (r *Repo) GetComponentName(component_id int) (string, error) {
+
+	comp_name := ""
+	err := r.store.db.QueryRow(`select c.code from components c where id = $1`, component_id).Scan(&comp_name)
+	if err != nil {
+		return comp_name, err
+	}
+	return comp_name, nil
 }
 
 func (r *Repo) CellGetAll() (interface{}, error) {

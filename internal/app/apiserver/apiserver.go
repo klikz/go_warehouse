@@ -6,7 +6,8 @@ import (
 )
 
 func Start(config *Config) error {
-	db, err := newDB(config.DatabaseURL)
+	db, err := newDB("host=localhost database='warehouse' user='postgres' password='Tashkent123UzbMusayevSD' sslmode='disable'")
+	// db, err := newDB(config.DatabaseURL)
 	if err != nil {
 		return err
 	}

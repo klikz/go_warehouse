@@ -2,9 +2,14 @@ package apiserver
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/jpeg"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"warehouse/internal/app/models"
@@ -664,15 +669,142 @@ func (s *Server) SerialInput(c *gin.Context) {
 	resp.Result = "ok"
 	c.JSON(200, resp)
 }
+func GetPhoto(serial string) (string, error) {
+	fmt.Println("get Photo")
+	// s.lo.Info("Check laboratory")
+	response, err := http.PostForm("http://192.168.5.83:5555", url.Values{
+		"serial": {serial}})
+	if err != nil {
+		return "", err
+
+	}
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
+	// return "", nil
+}
+
+func CopyFile(src, dst string) (err error) {
+	sfi, err := os.Stat(src)
+	if err != nil {
+		return
+	}
+	if !sfi.Mode().IsRegular() {
+		// cannot copy non-regular files (e.g., directories,
+		// symlinks, devices, etc.)
+		return fmt.Errorf("CopyFile: non-regular source file %s (%q)", sfi.Name(), sfi.Mode().String())
+	}
+	dfi, err := os.Stat(dst)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return
+		}
+	} else {
+		if !(dfi.Mode().IsRegular()) {
+			return fmt.Errorf("CopyFile: non-regular destination file %s (%q)", dfi.Name(), dfi.Mode().String())
+		}
+		if os.SameFile(sfi, dfi) {
+			return
+		}
+	}
+	if err = os.Link(src, dst); err == nil {
+		return
+	}
+	err = copyFileContents(src, dst)
+	return
+}
+
+// copyFileContents copies the contents of the file named src to the file named
+// by dst. The file will be created if it does not already exist. If the
+// destination file exists, all it's contents will be replaced by the contents
+// of the source file.
+func copyFileContents(src, dst string) (err error) {
+	in, err := os.Open(src)
+	if err != nil {
+		return
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return
+	}
+	defer func() {
+		cerr := out.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
+	if _, err = io.Copy(out, in); err != nil {
+		return
+	}
+	err = out.Sync()
+	return
+}
 
 func (s *Server) PackingSerialInput(c *gin.Context) {
 	resp := models.Responce{}
-	temp, _ := c.Get("serial")
-	temp2, _ := c.Get("retry")
+	serial := c.GetString("serial")
+	packing := c.GetString("packing")
+	retry := c.GetBool("retry")
 
-	// temp2, _ := c.Get("packing")
-	serial := temp.(string)
-	retry := temp2.(bool)
+	type Result struct {
+		Result string `json:"result"`
+		Err    string `json:"error"`
+	}
+	result, err := GetPhoto(serial)
+	photo := Result{}
+	fromPacking := string(result)
+	json.Unmarshal([]byte(fromPacking), &photo)
+
+	if err != nil {
+		s.Logger.Error("GetPhoto: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+	if photo.Result == "error" {
+		resp.Result = "error"
+		resp.Err = photo.Err
+		c.JSON(200, resp)
+		return
+	}
+
+	err = CopyFile("\\\\192.168.5.83\\camera\\"+serial+`.jpg`, `g:\premier\server_V2\global\media\`+serial+`.jpg`)
+	// err = CopyFile("\\\\192.168.5.83\\camera\\"+serial+`.jpg`, `D:\premier\v2\Global\media\`+serial+`.jpg`)
+	if err != nil {
+		fmt.Printf("CopyFile failed %q\n", err)
+	} else {
+		fmt.Printf("CopyFile succeeded\n")
+	}
+
+	check_lab, err := s.Store.Repo().CheckLaboratory(serial)
+	if err != nil {
+		s.Logger.Error(err)
+		resp.Result = "error"
+		resp.Err = err
+		c.JSON(200, resp)
+
+	}
+
+	fromLab := string(check_lab)
+	data := models.Laboratory{}
+	json.Unmarshal([]byte(fromLab), &data)
+	// s.Logger.Info("data from lab: ", data.Result)
+	// fmt.Println(data.Compressor)
+	if data.Result != "Good" {
+		s.Logger.Error(err)
+		resp.Result = "error"
+		resp.Err = "laboratoriyada muammo: " + data.Result
+		c.JSON(200, resp)
+		return
+	}
+
+	s.Store.Repo().LabInfoInput(data)
 
 	// s.Logger.Info("Route: PackingSerialInput, retry: ", retry)
 	// packing := temp2.(string)
@@ -695,7 +827,7 @@ func (s *Server) PackingSerialInput(c *gin.Context) {
 	// 	return
 	// }
 
-	err := s.Store.Repo().PackingSerialInput(serial, retry) //, packing)
+	err = s.Store.Repo().PackingSerialInput(serial, packing, retry) //, packing)
 	if err != nil {
 		s.Logger.Error("SerialInput: ", err)
 		resp.Result = "error"

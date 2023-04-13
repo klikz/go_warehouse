@@ -9,6 +9,204 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func (r *Repo) PlanUpdate(id int, quantity float64) error {
+
+	sql, err := r.store.db.Exec(`update plan set plan = $1 where id = $2`, quantity, id)
+	if err != nil {
+		return err
+	}
+
+	result, err := sql.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if result > 0 {
+		return nil
+	} else {
+		return errors.New("wrong data")
+	}
+
+}
+func (r *Repo) GetByMonthPlan(month string) (interface{}, error) {
+
+	// year := "2024"
+
+	// for m := 1; m < 13; m++ {
+	// 	month := year + "-" + strconv.Itoa(m)
+	// 	count := 1
+	// 	switch {
+	// 	case m == 1:
+	// 		count = 31
+	// 	case m == 2:
+	// 		count = 29
+	// 	case m == 3:
+	// 		count = 31
+	// 	case m == 4:
+	// 		count = 30
+	// 	case m == 5:
+	// 		count = 31
+	// 	case m == 6:
+	// 		count = 30
+	// 	case m == 7:
+	// 		count = 31
+	// 	case m == 8:
+	// 		count = 31
+	// 	case m == 9:
+	// 		count = 30
+	// 	case m == 10:
+	// 		count = 31
+	// 	case m == 11:
+	// 		count = 30
+	// 	case m == 12:
+	// 		count = 31
+
+	// 	}
+	// 	for i := 1; i < count+1; i++ {
+	// 		date := month + "-" + strconv.Itoa(i)
+
+	// 		result, err := r.store.db.Exec(`
+	// 		insert into plan ("date") values ($1)
+	// 		`, date)
+
+	// 		if err != nil {
+	// 			return nil, err
+	// 		}
+
+	// 		fmt.Println(result)
+	// 	}
+	// }
+
+	type Plan struct {
+		ID        int    `json:"id"`
+		Date      string `json:"date"`
+		Plan      int    `json:"plan"`
+		Bajarildi string `json:"bajarildi"`
+	}
+
+	rows, err := r.store.db.Query(`
+	SELECT p.id, to_char(p."date", 'YYYY-MM-DD') date, p.plan, p.bajarildi from plan p 
+	WHERE EXTRACT(MONTH FROM p."date") = $1 and EXTRACT(year FROM p."date") = date_part('year', CURRENT_DATE)
+	order by p."date" 
+	`, month)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var datas []Plan
+
+	for rows.Next() {
+		var data Plan
+		if err := rows.Scan(&data.ID, &data.Date, &data.Plan, &data.Bajarildi); err != nil {
+			return nil, err
+		}
+		datas = append(datas, data)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return datas, nil
+}
+func (r *Repo) GetPlanCountMonth() (int, error) {
+
+	plan := 0
+
+	err := r.store.db.QueryRow(`
+	select sum(p.plan) from plan p 
+	WHERE EXTRACT(MONTH FROM p."date") = date_part('month', CURRENT_DATE) and EXTRACT(year FROM p."date") = date_part('year', CURRENT_DATE)
+	`).Scan(&plan)
+
+	if err != nil {
+		return plan, err
+	}
+
+	return plan, nil
+}
+
+func (r *Repo) GetBajarildiCountMonth() (int, error) {
+
+	plan := 0
+
+	err := r.store.db.QueryRow(`
+	select sum(p.bajarildi) from plan p 
+	WHERE EXTRACT(MONTH FROM p."date") = date_part('month', CURRENT_DATE) and EXTRACT(year FROM p."date") = date_part('year', CURRENT_DATE)
+	`).Scan(&plan)
+
+	if err != nil {
+		return plan, err
+	}
+
+	return plan, nil
+}
+func (r *Repo) GetPlanCountToday() (int, error) {
+
+	bajarildi := 0
+
+	err := r.store.db.QueryRow(`
+	select p.bajarildi from plan p where p."date" = current_date
+	`).Scan(&bajarildi)
+
+	if err != nil {
+		return bajarildi, err
+	}
+
+	return bajarildi, nil
+}
+
+func (r *Repo) GetPlanToday() (int, error) {
+
+	plan := 0
+
+	err := r.store.db.QueryRow(`
+	select p.plan from plan p where p."date" = current_date
+	`).Scan(&plan)
+
+	if err != nil {
+		return plan, err
+	}
+
+	return plan, nil
+}
+
+func (r *Repo) GetCurrentPlan() (interface{}, error) {
+
+	type Plan struct {
+		ID        int    `json:"id"`
+		Date      string `json:"string"`
+		Plan      int    `json:"plan"`
+		Bajarildi string `json:"bajarildi"`
+	}
+
+	rows, err := r.store.db.Query(`
+	SELECT p.id, to_char(p."date", 'YYYY-MM-DD') date, p.plan, p.bajarildi from plan p 
+	WHERE EXTRACT(MONTH FROM p."date") = date_part('month', CURRENT_DATE) and EXTRACT(year FROM p."date") = date_part('year', CURRENT_DATE)
+	order by p."date" 
+	`)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var datas []Plan
+
+	for rows.Next() {
+		var data Plan
+		if err := rows.Scan(&data.ID, &data.Date, &data.Plan, &data.Bajarildi); err != nil {
+			return nil, err
+		}
+		datas = append(datas, data)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return datas, nil
+}
+
 func (r *Repo) AktInput(account models.Akt, filename string, type_id int) error {
 	if err := r.store.db.QueryRow(`select u.id from users u where u.email = $1`, account.UserName).Scan(&account.UserID); err != nil {
 		if err == sql.ErrNoRows {
@@ -583,13 +781,25 @@ func (r *Repo) InsertUpdateModel(name, code, comment string, id int) error {
 
 	_, err := r.store.db.Exec(fmt.Sprintf(`
 	CREATE TABLE models."%d" (
-    id int NOT NULL GENERATED ALWAYS AS IDENTITY,
-    component_id int NOT NULL,
-    quantity numeric NOT NULL,
-    "comment" varchar NULL,
-    "time" timestamp NOT null DEFAULT now()
-      )
-		`, new_id))
+		id int4 NOT NULL GENERATED ALWAYS AS IDENTITY,
+		component_id int4 NOT NULL,
+		quantity numeric NOT NULL,
+		"comment" varchar NULL,
+		"time" timestamp NOT NULL DEFAULT now(),
+		CONSTRAINT "%d_pk" PRIMARY KEY (id),
+		CONSTRAINT "%d_un" UNIQUE (component_id),
+		CONSTRAINT "%d_FK" FOREIGN KEY (component_id) REFERENCES public.components(id)
+	);
+		`, new_id, new_id, new_id, new_id))
+	// _, err := r.store.db.Exec(fmt.Sprintf(`
+	// CREATE TABLE models."%d" (
+	// id int NOT NULL GENERATED ALWAYS AS IDENTITY,
+	// component_id int NOT NULL,
+	// quantity numeric NOT NULL,
+	// "comment" varchar NULL,
+	// "time" timestamp NOT null DEFAULT now()
+	//   )
+	// 	`, new_id))
 	if err != nil {
 		return err
 	}

@@ -17,15 +17,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//
-func (r *Repo) Test() (string, error) {
-	code := ""
-	if err := r.store.db.QueryRow(`select g."data" from gs g where g.product = 'A1FA030103768'`).Scan(&code); err != nil {
-		return "", err
-	}
-	return code, nil
-}
-
 type PrinStruct struct {
 	LibraryID        string `json:"libraryID"`
 	AbsolutePath     string `json:"absolutePath"`
@@ -173,9 +164,10 @@ func (r *Repo) IncomeInProduction(lineIncome, lineOutcome int, serial string) er
 	return nil
 }
 
-func CheckLaboratory(serial string) (string, error) {
+func (r *Repo) CheckLaboratory(serial string) (string, error) {
 	logrus.Info("Check laboratory")
 	response, err := http.PostForm("http://192.168.5.250:3002/labinfo", url.Values{
+		// response, err := http.PostForm("http://192.168.5.195:3002/labinfo", url.Values{
 		"serial": {serial}})
 	if err != nil {
 		return "", err
@@ -267,7 +259,7 @@ func PrintLocal(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
 		count++
 	}
 
-	// channel <- "ok"
+	channel <- "error"
 }
 
 func PrintMetall(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
@@ -316,7 +308,7 @@ func PrintMetall(jsonStr []byte, channel chan string, wg *sync.WaitGroup) {
 		count++
 	}
 
-	// channel <- "ok"
+	channel <- "error"
 	// logrus.Info("Printing: ", string(jsonStr))
 }
 
@@ -1451,6 +1443,36 @@ func (r *Repo) GetPackingTodayModels() (interface{}, error) {
 	}
 }
 
+func (r *Repo) Get211ModelCurrentMonth() int {
+
+	count := 0
+
+	r.store.db.QueryRow(`
+	select count(p.id)  as model_211
+	from packing p, models m
+	where p."time" >= date_trunc('month', CURRENT_DATE)
+	and p."time" <= date_trunc('month', CURRENT_DATE) + interval '1 month' - interval '1 day'
+	and m.id = p.model_id 
+	and m."name"  like '%211%'`).Scan(&count)
+
+	return count
+}
+
+func (r *Repo) Get261ModelCurrentMonth() int {
+
+	count := 0
+
+	r.store.db.QueryRow(`
+	select count(p.id)  as model_211
+	from packing p, models m
+	where p."time" >= date_trunc('month', CURRENT_DATE)
+	and p."time" <= date_trunc('month', CURRENT_DATE) + interval '1 month' - interval '1 day'
+	and m.id = p.model_id 
+	and m."name"  like '%261%'`).Scan(&count)
+
+	return count
+}
+
 func (r *Repo) GetPackingCountOfMonth() (int, error) {
 
 	count := 0
@@ -1605,27 +1627,38 @@ func (r *Repo) GetByDateSerial(date1, date2 string) (interface{}, error) {
 		Serial string `json:"serial"`
 		Model  string `json:"model"`
 		Time   string `json:"time"`
-		Sector string `json:"sector"`
 	}
+
+	// type Serial struct {
+	// 	Serial string `json:"serial"`
+	// 	Model  string `json:"model"`
+	// 	Time   string `json:"time"`
+
+	// }
 	var serial []Serial
 	// rows, err := r.store.db.Query("(select p.serial, m.\"name\" as model, p.\"time\", c.\"name\" as sector  from packing p, models m, checkpoints c  where p.\"time\"::date>=to_date($1, 'YYYY-MM-DD') and p.\"time\"::date<=to_date($2, 'YYYY-MM-DD') and m.id = p.model_id and c.id = p.checkpoint_id  order by p.model_id) union ALL (select p2.serial, m.\"name\" as model, p2.\"time\", c.\"name\" as sector  from production p2, models m, checkpoints c where p2.\"time\"::date>=to_date($1, 'YYYY-MM-DD') and p2.\"time\"::date<=to_date($2, 'YYYY-MM-DD') and m.id = p2.model_id and c.id = p2.checkpoint_id order by p2.model_id, p2.checkpoint_id)", date1, date2)
 	rows, err := r.store.db.Query(`
-	(select p.serial, m."name" as model, to_char(p."time" , 'DD-MM-YYYY HH24:MI') "time" , c."name" as sector  from packing p, models m, checkpoints c
-	where p."time">=$1 and p."time"<=$2 and m.id = p.model_id and c.id = p.checkpoint_id  order by p.model_id)
-	union all
-	(select p.serial, m."name" as model, to_char(p."time" , 'DD-MM-YYYY HH24:MI') "time" , c."name" as sector  from galileo p, models m, checkpoints c
-	where p."time">=$1 and p."time"<=$2 and m.id = p.model_id and c.id = p.checkpoint_id  order by p.model_id)
-	union all
-	(select p2.serial, m."name" as model, to_char(p2."time" , 'DD-MM-YYYY HH24:MI') "time", c."name" as sector  from production p2, models m, checkpoints c
-	where p2."time">=$1 and p2."time"<=$2 and m.id = p2.model_id and c.id = p2.checkpoint_id order by p2.model_id, p2.checkpoint_id)`,
-		date1, date2)
+	select p.serial, m."name" as model, to_char(p."time" , 'DD-MM-YYYY HH24:MI') "time"  from packing p, models m, checkpoints c
+	where p."time">=$1 and p."time"<=$2 and m.id = p.model_id and c.id = p.checkpoint_id  order by p.model_id
+	`, date1, date2)
+
+	// rows, err := r.store.db.Query(`
+	// (select p.serial, m."name" as model, to_char(p."time" , 'DD-MM-YYYY HH24:MI') "time" , c."name" as sector  from packing p, models m, checkpoints c
+	// where p."time">=$1 and p."time"<=$2 and m.id = p.model_id and c.id = p.checkpoint_id  order by p.model_id)
+	// union all
+	// (select p.serial, m."name" as model, to_char(p."time" , 'DD-MM-YYYY HH24:MI') "time" , c."name" as sector  from galileo p, models m, checkpoints c
+	// where p."time">=$1 and p."time"<=$2 and m.id = p.model_id and c.id = p.checkpoint_id  order by p.model_id)
+	// union all
+	// (select p2.serial, m."name" as model, to_char(p2."time" , 'DD-MM-YYYY HH24:MI') "time", c."name" as sector  from production p2, models m, checkpoints c
+	// where p2."time">=$1 and p2."time"<=$2 and m.id = p2.model_id and c.id = p2.checkpoint_id order by p2.model_id, p2.checkpoint_id)`,
+	// 	date1, date2)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var comp Serial
-		if err := rows.Scan(&comp.Serial, &comp.Model, &comp.Time, &comp.Sector); err != nil {
+		if err := rows.Scan(&comp.Serial, &comp.Model, &comp.Time); err != nil {
 			return serial, err
 		}
 		serial = append(serial, comp)
@@ -2207,32 +2240,32 @@ func (r *Repo) SerialInput(line int, serial string) error {
 			Result    string `json:"result"`
 		}
 
-		res, err := CheckLaboratory(serial)
-		if err != nil {
-			_, err := setPin("0", modelInfo.address)
-			if err != nil {
-				return err
-			}
-			return errors.New("laboratoriyada muammo")
-		}
-		s := string(res)
-		data := Laboratory{}
-		json.Unmarshal([]byte(s), &data)
-		logrus.Info("laboratory: ", data.Result)
-		if data.Result != "Good" {
-			_, err := setPin("0", modelInfo.address)
-			if err != nil {
-				return err
-			}
-			return errors.New("laboratoriyada muammo")
-		}
-		if data.Result == "No data" {
-			_, err := setPin("0", modelInfo.address)
-			if err != nil {
-				return err
-			}
-			return errors.New("laboratoriyada muammo")
-		}
+		// res, err := CheckLaboratory(serial)
+		// if err != nil {
+		// 	_, err := setPin("0", modelInfo.address)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	return errors.New("laboratoriyada muammo")
+		// }
+		// s := string(res)
+		// data := Laboratory{}
+		// json.Unmarshal([]byte(s), &data)
+		// logrus.Info("laboratory: ", data.Result)
+		// if data.Result != "Good" {
+		// 	_, err := setPin("0", modelInfo.address)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	return errors.New("laboratoriyada muammo")
+		// }
+		// if data.Result == "No data" {
+		// 	_, err := setPin("0", modelInfo.address)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	return errors.New("laboratoriyada muammo")
+		// }
 	case 9:
 		// check production to serial
 		if err := r.store.db.QueryRow("select product_id from production p where serial = $1 and  checkpoint_id = $2", serial, line).Scan(&prod_id.id); err == nil {
@@ -2339,28 +2372,34 @@ func (r *Repo) SerialInput(line int, serial string) error {
 	return nil
 }
 
-func (r *Repo) PackingSerialInput(serial string, retry bool) error {
+func (r *Repo) LabInfoInput(data models.Laboratory) {
 
-	type Laboratory struct {
-		StartTime string `json:"start_time"`
-		EndTime   string `json:"end_time"`
-		Duration  string `json:"duration"`
-		Model     string `json:"model"`
-		Result    string `json:"result"`
-	}
+	r.store.db.Exec(`insert into lab_info (serial, start_time, stop_time, duration, "result", compressor, model, line, point)
+	values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, data.Serial, data.StartTime, data.EndTime, data.Duration, data.Result, data.Compressor, data.Model, data.Line, data.Point)
+}
+
+func (r *Repo) PackingSerialInput(serial, packing string, retry bool) error {
+
+	// type Laboratory struct {
+	// 	StartTime string `json:"start_time"`
+	// 	EndTime   string `json:"end_time"`
+	// 	Duration  string `json:"duration"`
+	// 	Model     string `json:"model"`
+	// 	Result    string `json:"result"`
+	// }
 	// logrus.Info("PackingSerialInput started")
-	res, err := CheckLaboratory(serial)
-	if err != nil {
-		return errors.New("check laboratory err")
-	}
+	// res, err := CheckLaboratory(serial)
+	// if err != nil {
+	// 	return errors.New("check laboratory err")
+	// }
 
-	s := string(res)
-	data := Laboratory{}
-	json.Unmarshal([]byte(s), &data)
-	logrus.Info("data from lab: ", data)
-	if data.Result == "No data" {
-		return errors.New("laboratoriyada muammo")
-	}
+	// s := string(res)
+	// data := Laboratory{}
+	// json.Unmarshal([]byte(s), &data)
+	// logrus.Info("data from lab: ", data)
+	// if data.Result == "No data" {
+	// 	return errors.New("laboratoriyada muammo")
+	// }
 	type ModelId struct {
 		id   int
 		name string
@@ -2373,7 +2412,7 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 	}
 	checkExport := serial[2:3]
 	var wg sync.WaitGroup
-	fmt.Println(checkExport)
+	// fmt.Println(checkExport)
 
 	if retry {
 		var check interface{}
@@ -2387,7 +2426,12 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 		}
 		// code = strings.ReplaceAll(code, `"`, `\"`)
 		// code = strings.ReplaceAll(code, ``, ``)
-		ioutil.WriteFile("G:/gs_code/gscode.txt", []byte(code), 0644)
+		// ioutil.WriteFile("G:/gs_code/gscode.txt", []byte(code), 0644)
+		// logrus.Info("write to lan")
+		err := ioutil.WriteFile("\\\\192.168.5.83\\gscode\\gscode.txt", []byte(code), 0644)
+		if err != nil {
+			return err
+		}
 		channel1 := make(chan string, 1)
 		channel2 := make(chan string, 1)
 
@@ -2454,7 +2498,7 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 		}
 
 	}
-	logrus.Info("check gs code")
+	// logrus.Info("check gs code")
 	var check interface{}
 	if err := r.store.db.QueryRow(`select g.id from gs g where g.model = $1 and g.status  = true `, modelId.id).Scan(&check); err != nil {
 		logrus.Error("error check: ", err)
@@ -2463,26 +2507,26 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 		}
 		return err
 	}
-	logrus.Info("insert serial to db packing")
-	rows, err := r.store.db.Query("insert into packing (serial, model_id) values ($1, $2)", serial, modelId.id)
+	// logrus.Info("insert serial to db packing")
+	rows, err := r.store.db.Query("insert into packing (serial, packing, model_id) values ($1, $2, $3)", serial, packing, modelId.id)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
-
+	r.store.db.Exec(`update plan set bajarildi = bajarildi + 1 where "date" = current_date`)
 	type GSCode struct {
 		ID   int
 		Data string
 	}
 	codeData := GSCode{}
-	logrus.Info("Get GS code")
+	// logrus.Info("Get GS code")
 	if err := r.store.db.QueryRow("select g.id, g.data from gs g where g.model = $1 and g.status = true", modelId.id).Scan(&codeData.ID, &codeData.Data); err != nil {
 		if err == sql.ErrNoRows {
 			return errors.New("keys not found")
 		}
 		return err
 	}
-	logrus.Info("Update gs code")
+	// logrus.Info("Update gs code")
 	_, err = r.store.db.Exec(`update gs set product = $1, status = false where id = $2`, serial, codeData.ID)
 	if err != nil {
 		return err
@@ -2491,11 +2535,16 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 	channel1 := make(chan string, 1)
 	channel2 := make(chan string, 1)
 
-	ioutil.WriteFile("G:/gs_code/gscode.txt", []byte(codeData.Data), 0644)
+	// ioutil.WriteFile("G:/gs_code/gscode.txt", []byte(codeData.Data), 0644)
+	// logrus.Info("write to lan")
+	err = ioutil.WriteFile("\\\\192.168.5.83\\gscode\\gscode.txt", []byte(codeData.Data), 0644)
+	if err != nil {
+		return err
+	}
 
 	// codeData.Data = strings.ReplaceAll(codeData.Data, `"`, `\"`)
 	// codeData.Data = strings.ReplaceAll(codeData.Data, ``, ``)
-	logrus.Info("Print data")
+
 	var data1 = []byte(fmt.Sprintf(`
 			{
 				"LibraryID": "2de725d4-1952-418e-81cc-450baa035a34",
@@ -2520,6 +2569,7 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 	wg.Add(2)
 
 	go PrintLocal(data1, channel1, &wg)
+
 	go PrintLocal(data2, channel2, &wg)
 
 	wg.Wait()
@@ -2558,6 +2608,7 @@ func (r *Repo) PackingSerialInput(serial string, retry bool) error {
 		logrus.Error("error in printing: " + errorText1 + errorText2)
 		return errors.New("qaytadan urinib ko'ring")
 	}
+
 }
 
 func (r *Repo) GetInfoBySerial(serial string) (interface{}, error) {
@@ -2586,6 +2637,7 @@ func (r *Repo) GetInfoBySerial(serial string) (interface{}, error) {
 		ProductionInfo []Production
 		GalileoInfo    models.Galileo
 		Remont         []Remont
+		LabInfo        models.Laboratory
 	}
 
 	var packing []Packing
@@ -2679,13 +2731,22 @@ func (r *Repo) GetInfoBySerial(serial string) (interface{}, error) {
 		remont = append(remont, comp)
 	}
 
+	var labInfo models.Laboratory
+	r.store.db.QueryRow(`
+	select 	l.serial, l.compressor, l.model, l.line, l.point, to_char(l.start_time, 'YYYY-MM-DD HH24-MI') start_time, to_char(l.stop_time, 'YYYY-MM-DD HH24-MI') stop_time,	l.duration, l."result" 
+	from lab_info l
+	where l.serial = $1
+	`, serial).Scan(&labInfo.Serial, &labInfo.Compressor, &labInfo.Model, &labInfo.Line, &labInfo.Point, &labInfo.StartTime, &labInfo.EndTime, &labInfo.Duration, &labInfo.Result)
+
+	// fmt.Println("lab info: ", labInfo)
 	var productInfo Info
 	productInfo.PackingInfo = packing
 	productInfo.ProductionInfo = production
 	productInfo.GalileoInfo = galileo
 	productInfo.Remont = remont
+	productInfo.LabInfo = labInfo
 
-	fmt.Println("remont: ", productInfo.Remont)
+	// fmt.Println("remont: ", productInfo.Remont)
 
 	// if productInfo.GalileoInfo.Serial == "" {
 	// 	return nil, errors.New("no data")

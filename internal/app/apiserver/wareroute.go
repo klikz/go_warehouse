@@ -27,12 +27,15 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 		FreonModels      interface{} `json:"freon_models"`
 		LaboratoryModels interface{} `json:"laboratory_models"`
 		PackingModels    interface{} `json:"packing_models"`
+		ModelsInMonth    interface{} `json:"models_month"`
 		PlanMonth        int         `json:"plan_month"`
 		CountMonth       int         `json:"count_month"`
 		PercentMonth     float64     `json:"percent_month"`
 		PlanDaily        int         `json:"plan_daily"`
 		CountDaily       int         `json:"count_daily"`
 		PercentDaily     float64     `json:"percent_daily"`
+		CurrentMonth211  int         `json:"model_211"`
+		CurrentMonth261  int         `json:"model_261"`
 	}
 
 	resp := models.Responce{}
@@ -119,7 +122,7 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 		return
 	}
 
-	allInfo.CountMonth, err = s.Store.Repo().GetPackingCountOfMonth()
+	allInfo.CountMonth, err = s.Store.Repo().GetBajarildiCountMonth()
 	if err != nil {
 		s.Logger.Error("allInfo.GetPackingCountOfMonth: ", err)
 		resp.Result = "error"
@@ -128,17 +131,150 @@ func (s *Server) TodayStatistics(c *gin.Context) {
 		return
 	}
 
+	allInfo.PlanDaily, err = s.Store.Repo().GetPlanToday()
+	if err != nil {
+		s.Logger.Error("allInfo.GetPlanToday: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+	allInfo.CountDaily, err = s.Store.Repo().GetPlanCountToday()
+	if err != nil {
+		s.Logger.Error("allInfo.GetPlanCountToday: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+	allInfo.PlanMonth, err = s.Store.Repo().GetPlanCountMonth()
+	if err != nil {
+		s.Logger.Error("allInfo.GetPlanCountMonth: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
 	allInfo.Counters = counters
-	allInfo.PlanMonth = 15000
-	allInfo.PercentMonth = float64((500 * 100) / allInfo.PlanMonth)
-	allInfo.PlanDaily = 500
-	allInfo.CountDaily = s.Store.Repo().GetPackingToday2()
-	allInfo.PercentDaily = float64((allInfo.CountDaily * 100) / allInfo.PlanDaily)
+
+	if allInfo.CountMonth > 0 && allInfo.PlanMonth > 0 {
+		allInfo.PercentMonth = float64((allInfo.CountMonth * 100) / allInfo.PlanMonth)
+	}
+
+	if allInfo.CountDaily > 0 && allInfo.PlanDaily > 0 {
+		allInfo.PercentDaily = float64((allInfo.CountDaily * 100) / allInfo.PlanDaily)
+	}
+
+	allInfo.CurrentMonth211 = s.Store.Repo().Get211ModelCurrentMonth()
+	allInfo.CurrentMonth261 = s.Store.Repo().Get261ModelCurrentMonth()
 
 	// s.Logger.Info("percent: ", float64((5000*100)/allInfo.Plan))
 
 	resp.Result = "ok"
 	resp.Data = allInfo
+
+	c.JSON(200, resp)
+}
+
+func (s *Server) PlanUpdate(c *gin.Context) {
+	resp := models.Responce{}
+
+	id := c.GetInt("id")
+	quantity := c.GetFloat64("quantity")
+
+	if quantity < 0 {
+		resp.Result = "error"
+		resp.Err = "Noto'g'ri reja kiritildi"
+		c.JSON(200, resp)
+		return
+	}
+
+	err := s.Store.Repo().PlanUpdate(id, quantity)
+	if err != nil {
+		s.Logger.Error("PlanUpdate: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	resp.Result = "ok"
+	// resp.Data = data
+
+	c.JSON(200, resp)
+}
+
+func (s *Server) GetByMonthPlan(c *gin.Context) {
+	resp := models.Responce{}
+
+	month := c.GetString("date1")
+
+	data, err := s.Store.Repo().GetByMonthPlan(month)
+	if err != nil {
+		s.Logger.Error("GetByMonthPlan: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	resp.Result = "ok"
+	resp.Data = data
+
+	c.JSON(200, resp)
+}
+
+func (s *Server) GetPlanToday(c *gin.Context) {
+	resp := models.Responce{}
+
+	// c_time := time.Now()
+	// c_time.Month().
+	data := ""
+	// data = "2023" + "-" + c_time.Month().String() + "-" + strconv.Itoa(c_time.Day()) + " " + "8-00"
+	data = "2023-04-12 8-00"
+	time1, err := time.Parse("2023-04-12 8-00", data)
+	if err != nil {
+		fmt.Println("err: ", err)
+	}
+	time2 := time.Now()
+
+	// fmt.Println("c_time: ", c_time)
+	fmt.Println("time1: ", time1)
+	fmt.Println("time2: ", time2)
+
+	oraliq := time2.Sub(time1)
+
+	fmt.Println("oraliq time: ", oraliq.Hours())
+
+	// data, err := s.Store.Repo().GetPlanToday()
+	// if err != nil {
+	// 	s.Logger.Error("GetPlanToday: ", err)
+	// 	resp.Result = "error"
+	// 	resp.Err = err.Error()
+	// 	c.JSON(200, resp)
+	// 	return
+	// }
+
+	resp.Result = "ok"
+	resp.Data = data
+
+	c.JSON(200, resp)
+}
+
+func (s *Server) GetCurrentPlan(c *gin.Context) {
+	resp := models.Responce{}
+	data, err := s.Store.Repo().GetCurrentPlan()
+	if err != nil {
+		s.Logger.Error("GetCurrentPlan: ", err)
+		resp.Result = "error"
+		resp.Err = err.Error()
+		c.JSON(200, resp)
+		return
+	}
+
+	resp.Result = "ok"
+	resp.Data = data
 
 	c.JSON(200, resp)
 }
@@ -230,20 +366,101 @@ func (s *Server) CellGetByComponentAll(c *gin.Context) {
 
 func (s *Server) CellGetEmpty(c *gin.Context) {
 	resp := models.Responce{}
-	lot_id := c.GetInt("lot_id")
+	// lot_id := c.GetInt("lot_id")
 	component_id := c.GetInt("component_id")
+	notFilter := []string{"890044818",
+		"890112180",
+		"890112185",
+		"890112495",
+		"890119914",
+		"890171747",
+		"890171942",
+		"890192215",
+		"890226858",
+		"890231378",
+		"890235373",
+		"890242209",
+		"890253279",
+		"890254383",
+		"890290041",
+		"890290446",
+		"890290773",
+		"890292726",
+		"890296695",
+		"890296871",
+		"890296951",
+		"890304132",
+		"890306273",
+		"890308659",
+		"890310001",
+		"890310252",
+		"890311664",
+		"890314043",
+		"890314047",
+		"890315140",
+		"890315147",
+		"890317361",
+		"890317363",
+		"890317712",
+		"890327833",
+		"890333818",
+		"890340264",
+		"PR00100MB256",
+		"PR00100SB260",
+		"PR00100SO258",
+		"PR211003K",
+		"PR211261F",
+		"PR211261I",
+		"PR211261P",
+		"PR211261S",
+		"PR211261TH",
+		"PR261003K",
+		"PRP211261"}
 
-	data, err := s.Store.Repo().CellGetEmpty(lot_id, component_id)
+	comp_name, err := s.Store.Repo().GetComponentName(component_id)
 	if err != nil {
-		s.Logger.Error("CellGetEmpty: ", err)
+		s.Logger.Error("GetComponentName: ", err)
 		resp.Result = "error"
 		resp.Err = err.Error()
 		c.JSON(200, resp)
 		return
 	}
 
-	resp.Result = "ok"
-	resp.Data = data
+	skip_check := false
+
+	fmt.Println("comp_name: ", comp_name)
+
+	for i := 0; i < len(notFilter); i++ {
+		if notFilter[i] == comp_name {
+			skip_check = true
+		}
+
+	}
+
+	fmt.Println("skip_check: ", skip_check)
+	if skip_check == true {
+		data, err := s.Store.Repo().CellGetNoFilter(comp_name)
+		if err != nil {
+			s.Logger.Error("CellGetEmpty: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+		resp.Result = "ok"
+		resp.Data = data
+	} else {
+		data, err := s.Store.Repo().CellGetEmpty(component_id)
+		if err != nil {
+			s.Logger.Error("CellGetEmpty: ", err)
+			resp.Result = "error"
+			resp.Err = err.Error()
+			c.JSON(200, resp)
+			return
+		}
+		resp.Result = "ok"
+		resp.Data = data
+	}
 
 	c.JSON(200, resp)
 }
