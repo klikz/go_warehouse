@@ -2513,7 +2513,14 @@ func (r *Repo) PackingSerialInput(serial, packing string, retry bool) error {
 		return err
 	}
 	defer rows.Close()
-	r.store.db.Exec(`update plan set bajarildi = bajarildi + 1 where "date" = current_date`)
+	hours, _, _ := time.Now().Clock()
+
+	if hours < 8 {
+		r.store.db.Exec(`update plan set bajarildi = bajarildi + 1 where "date" = current_date - interval '1 days'`)
+	} else {
+		r.store.db.Exec(`update plan set bajarildi = bajarildi + 1 where "date" = current_date`)
+	}
+
 	type GSCode struct {
 		ID   int
 		Data string
