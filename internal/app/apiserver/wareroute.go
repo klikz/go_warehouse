@@ -1016,12 +1016,13 @@ func (s *Server) Model(c *gin.Context) {
 func (s *Server) InsertUpdateModel(c *gin.Context) {
 
 	resp := models.Responce{}
-	id := c.GetInt(("id"))
-	code := c.GetString(("code"))
-	comment := c.GetString(("comment"))
-	name := c.GetString(("name"))
+	id := c.GetInt("id")
+	code := c.GetString("code")
+	comment := c.GetString("comment")
+	name := c.GetString("name")
+	specs := c.GetString("specs")
 
-	err := s.Store.Repo().InsertUpdateModel(name, code, comment, id)
+	err := s.Store.Repo().InsertUpdateModel(name, code, comment, specs, id)
 	if err != nil {
 		s.Logger.Error("InsertUpdateModel: ", err)
 		resp.Result = "error"

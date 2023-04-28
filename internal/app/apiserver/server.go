@@ -72,7 +72,7 @@ func (s *Server) configureRouter() {
 		ware.POST("/outcome/component/check", s.OutcomeComponentCheck)                   // {"component_id":int, "quantity":float64, "token": string}
 		ware.POST("/outcome/component/submit", s.OutcomeComponentSubmit)                 // {"component_id":int, "checkpoint_id":int, "quantity":float64, "token": string}
 		ware.POST("/outcome/report", s.OutcomeReport)                                    // {"date1":string, "date2":string, "token": string}
-		ware.POST("/model/update", s.InsertUpdateModel)                                  // {"id":int, "code"string, "comment":string, "name":string, "token": string}
+		ware.POST("/model/update", s.InsertUpdateModel)                                  // {"specs": string, "id":int, "code"string, "comment":string, "name":string, "token": string} specs=>assembly name
 		ware.POST("/bom/component", s.BomComponentInfo)                                  // {"id":int, "token": string}
 		ware.POST("/bom/component/add", s.BomComponentAdd)                               // {"id":int, "token": string}
 		ware.POST("/bom/component/delete", s.BomComponentDelete)                         // {"model_id":int, "component_id":int, "token": string}

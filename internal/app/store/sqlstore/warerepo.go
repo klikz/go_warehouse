@@ -721,13 +721,14 @@ func (r *Repo) Types() (interface{}, error) {
 
 func (r *Repo) Models() (interface{}, error) {
 	type Type struct {
-		ID      int    `json:"id"`
-		Name    string `json:"name"`
-		Code    string `json:"code"`
-		Comment string `json:"comment"`
+		ID       int    `json:"id"`
+		Name     string `json:"name"`
+		Code     string `json:"code"`
+		Comment  string `json:"comment"`
+		Assembly string `json:"assembly"`
 	}
 
-	rows, err := r.store.db.Query(`select m.id, m."name", m.code, m."comment" from models m order by m.code `)
+	rows, err := r.store.db.Query(`select m.id, m."name", m.code, m."comment", m.assembly from models m order by m.code `)
 
 	if err != nil {
 		return nil, err
@@ -739,7 +740,7 @@ func (r *Repo) Models() (interface{}, error) {
 
 	for rows.Next() {
 		comp := Type{}
-		if err := rows.Scan(&comp.ID, &comp.Name, &comp.Code, &comp.Comment); err != nil {
+		if err := rows.Scan(&comp.ID, &comp.Name, &comp.Code, &comp.Comment, &comp.Assembly); err != nil {
 			return data, err
 		}
 		data = append(data, comp)
@@ -753,18 +754,18 @@ func (r *Repo) Models() (interface{}, error) {
 
 func (r *Repo) Model(id int) (interface{}, error) {
 	comp := models.Model{}
-	if err := r.store.db.QueryRow(`select m.id, m."name", m.code, m."comment"  from public.models m where id = $1`, id).Scan(&comp.ID, &comp.Name, &comp.Code, &comp.Comment); err != nil {
+	if err := r.store.db.QueryRow(`select m.id, m."name", m.code, m."comment",m.assembly from public.models m where id = $1`, id).Scan(&comp.ID, &comp.Name, &comp.Code, &comp.Comment, &comp.Assembly); err != nil {
 		return nil, err
 	}
 
 	return comp, nil
 }
 
-func (r *Repo) InsertUpdateModel(name, code, comment string, id int) error {
+func (r *Repo) InsertUpdateModel(name, code, comment, specs string, id int) error {
 	if id > 0 {
 		_, err := r.store.db.Exec(`
-		update models set "name" = $1, code = $2, comment = $3 where id = $4
-		`, name, code, comment, id)
+		update models set "name" = $1, code = $2, comment = $3, assembly = $5 where id = $4
+		`, name, code, comment, id, specs)
 		if err != nil {
 			return err
 		}
@@ -773,9 +774,9 @@ func (r *Repo) InsertUpdateModel(name, code, comment string, id int) error {
 	new_id := 0
 
 	if err := r.store.db.QueryRow(`
-	insert into public.models ("name", code, "comment")
-      values ($1, $2, $3) returning id
-	`, name, code, comment).Scan(&new_id); err != nil {
+	insert into public.models ("name", code, "comment", assembly)
+      values ($1, $2, $3, $4) returning id
+	`, name, code, comment, specs).Scan(&new_id); err != nil {
 		return err
 	}
 
@@ -786,6 +787,7 @@ func (r *Repo) InsertUpdateModel(name, code, comment string, id int) error {
 		quantity numeric NOT NULL,
 		"comment" varchar NULL,
 		"time" timestamp NOT NULL DEFAULT now(),
+		assembly varchar NOT NULL DEFAULT ' '::character varying,
 		CONSTRAINT "%d_pk" PRIMARY KEY (id),
 		CONSTRAINT "%d_un" UNIQUE (component_id),
 		CONSTRAINT "%d_FK" FOREIGN KEY (component_id) REFERENCES public.components(id)

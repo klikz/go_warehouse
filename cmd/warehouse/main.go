@@ -53,7 +53,7 @@ func checkLicenseTime() {
 	elapsed2 := t2.Sub(time.Now()).Hours()
 
 	// fmt.Println("elapsed1: ", elapsed1)
-	// fmt.Println("elapsed2: ", elapsed2)
+	fmt.Println(elapsed2)
 
 	if elapsed1 < -720 {
 		log.Fatal("Time LIMIT exceed")
@@ -72,6 +72,7 @@ func executeCronJob() {
 func main() {
 	flag.Parse()
 	config := apiserver.NewConfig()
+	checkLicenseTime()
 	go executeCronJob()
 
 	_, err := toml.DecodeFile(configPath, config)

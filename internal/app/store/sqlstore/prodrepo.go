@@ -2434,8 +2434,9 @@ func (r *Repo) PackingSerialInput(serial, packing string, retry bool) error {
 		}
 		channel1 := make(chan string, 1)
 		channel2 := make(chan string, 1)
+		channel3 := make(chan string, 1)
 
-		wg.Add(2)
+		wg.Add(3)
 
 		var data1 = []byte(fmt.Sprintf(`
 			{
@@ -2459,8 +2460,22 @@ func (r *Repo) PackingSerialInput(serial, packing string, retry bool) error {
 			}
 		}`, serialSlice, serial))
 
+		var data3 = []byte(fmt.Sprintf(`
+
+
+		{
+			"LibraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+			"AbsolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/%s_4.btw",
+			"PrintRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+			"Printer": "Canon GM2000 series",
+			"DataEntryControls": {
+				"SeriaInput": "%s"
+			}
+		}`, serialSlice, serial))
+
 		go PrintLocal(data1, channel1, &wg)
 		go PrintLocal(data2, channel2, &wg)
+		go PrintLocal(data3, channel3, &wg)
 
 		wg.Wait()
 		errorText1 := <-channel1
@@ -2541,6 +2556,7 @@ func (r *Repo) PackingSerialInput(serial, packing string, retry bool) error {
 
 	channel1 := make(chan string, 1)
 	channel2 := make(chan string, 1)
+	channel3 := make(chan string, 1)
 
 	// ioutil.WriteFile("G:/gs_code/gscode.txt", []byte(codeData.Data), 0644)
 	// logrus.Info("write to lan")
@@ -2573,11 +2589,22 @@ func (r *Repo) PackingSerialInput(serial, packing string, retry bool) error {
 			}
 		}`, serialSlice, serial))
 
-	wg.Add(2)
+	var data3 = []byte(fmt.Sprintf(`
+		{
+			"LibraryID": "2de725d4-1952-418e-81cc-450baa035a34",
+			"AbsolutePath": "C:/inetpub/wwwroot/BarTender/wwwroot/Templates/premier/%s_4.btw",
+			"PrintRequestID": "fe80480e-1f94-4A2f-8947-e492800623aa",
+			"Printer": "Canon GM2000 series",
+			"DataEntryControls": {
+				"SeriaInput": "%s"
+			}
+		}`, serialSlice, serial))
+
+	wg.Add(3)
 
 	go PrintLocal(data1, channel1, &wg)
-
 	go PrintLocal(data2, channel2, &wg)
+	go PrintLocal(data3, channel3, &wg)
 
 	wg.Wait()
 	errorText1 := <-channel1
@@ -3132,6 +3159,7 @@ func (r *Repo) Metall_Serial(id int) error {
 				"SerialInput": "%s"
 		}
 	}`, info.Name, countString))
+
 	PrintMetall(data, channel, &wg)
 
 	wg.Wait()
